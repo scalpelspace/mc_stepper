@@ -51,11 +51,15 @@ STM32G431RB microcontroller firmware for `mc_stepper_pcb`.
 <details markdown="1">
   <summary>Pin & Peripherals Table</summary>
 
-| STM32G431RB | Peripheral       | Config | Connection                | Notes |
-|-------------|------------------|--------|---------------------------|-------|
-| PB3         | `SYS_JTDO-SWO`   |        | TC2050 SWD Pin 6: `SWO`   |       |
-| PA14        | `SYS_JTCK-SWCLK` |        | TC2050 SWD Pin 4: `SWCLK` |       |
-| PA13        | `SYS_JTMS-SWDIO` |        | TC2050 SWD Pin 2: `SWDIO` |       |
+| STM32G431RB | Peripheral       | Config     | Connection                | Notes |
+|-------------|------------------|------------|---------------------------|-------|
+| PB3         | `SYS_JTDO-SWO`   |            | TC2050 SWD Pin 6: `SWO`   |       |
+| PA14        | `SYS_JTCK-SWCLK` |            | TC2050 SWD Pin 4: `SWCLK` |       |
+| PA13        | `SYS_JTMS-SWDIO` |            | TC2050 SWD Pin 2: `SWDIO` |       |
+| PA10        | `USART1_RX`      | 115200 bps | `TX`                      |       |
+| PA9         | `USART1_TX`      | 115200 bps | `RX`                      |       |
+| PA11        | `FDCAN1_RX`      |            | TJA1057BTK Pin 1: `TXD`   |       |
+| PA12        | `FDCAN1_TX`      |            | TJA1057BTK Pin 4: `RXD`   |       |
 
 </details>
 
