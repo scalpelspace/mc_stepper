@@ -62,6 +62,15 @@ STM32G431RB microcontroller firmware for `mc_stepper_pcb`.
 ### 1.4 Clock Configurations
 
 ```
+32.768 kHz Low Speed External (LSE)
+ -> 32.768 kHz RTC
+
+24 MHz High Speed External (HSE)
+ -> Phase-Locked Loop Main (PLLM)
+ -> 170 MHz SYSCLK
+ -> 170 MHz HCLK
+     -> 170 MHz APB1 (Maxed) -> 170 MHz APB1 Timer
+     -> 170 MHz APB2 (Maxed) -> 170 MHz APB2 Timer
 ```
 
 ---
