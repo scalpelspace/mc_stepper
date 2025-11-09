@@ -35,7 +35,7 @@ STM32G431RB microcontroller firmware for `mc_stepper_pcb`.
 
 ### 1.2 Block Diagram
 
-![mc_stepper.drawio.png](docs/momentum.drawio.png)
+![mc_stepper.drawio.png](docs/mc_stepper.drawio.png)
 
 > Drawio file here: [mc_stepper.drawio](docs/mc_stepper.drawio).
 
