@@ -2,7 +2,7 @@
 
 ![arm_gcc_build](https://github.com/scalpelspace/mc_stepper/actions/workflows/arm_gcc_build.yaml/badge.svg)
 
-STM32G431RB microcontroller firmware for `mc_stepper_pcb`.
+STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 
 - CAN bus and UART enabled stepper motor closed loop controller.
 
@@ -31,7 +31,7 @@ STM32G431RB microcontroller firmware for `mc_stepper_pcb`.
 
 | Manufacturer Part Number | Manufacturer       | Description | Quantity | Notes |
 |--------------------------|--------------------|-------------|---------:|-------|
-| STM32G431RB              | STMicroelectronics | 32-bit MCU  |        1 |       |
+| STM32L432KC              | STMicroelectronics | 32-bit MCU  |        1 |       |
 
 ### 1.2 Block Diagram
 
@@ -51,7 +51,7 @@ STM32G431RB microcontroller firmware for `mc_stepper_pcb`.
 <details markdown="1">
   <summary>Pin & Peripherals Table</summary>
 
-| STM32G431RB | Peripheral       | Config     | Connection                | Notes |
+| STM32L432KC | Peripheral       | Config     | Connection                | Notes |
 |-------------|------------------|------------|---------------------------|-------|
 | PB3         | `SYS_JTDO-SWO`   |            | TC2050 SWD Pin 6: `SWO`   |       |
 | PA14        | `SYS_JTCK-SWCLK` |            | TC2050 SWD Pin 4: `SWCLK` |       |
@@ -66,15 +66,12 @@ STM32G431RB microcontroller firmware for `mc_stepper_pcb`.
 ### 1.4 Clock Configurations
 
 ```
-32.768 kHz Low Speed External (LSE)
- -> 32.768 kHz RTC
-
-24 MHz High Speed External (HSE)
+8 MHz High Speed External (HSE)
  -> Phase-Locked Loop Main (PLLM)
- -> 170 MHz SYSCLK
- -> 170 MHz HCLK
-     -> 170 MHz APB1 (Maxed) -> 170 MHz APB1 Timer
-     -> 170 MHz APB2 (Maxed) -> 170 MHz APB2 Timer
+ -> 80 MHz SYSCLK
+ -> 80 MHz HCLK
+     -> 80 MHz APB1 (Maxed) -> 80 MHz APB1 Timer
+     -> 80 MHz APB2 (Maxed) -> 80 MHz APB2 Timer
 ```
 
 ---
