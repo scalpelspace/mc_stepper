@@ -82,7 +82,7 @@ This project uses the following open-source software components:
 
 - **STM32Cube HAL**, STMicroelectronics.
     - Licensed under the `3-Clause BSD License`.
-        - See [`LICENSE.txt`](Drivers/STM32G4xx_HAL_Driver/LICENSE.txt).
+        - See [`LICENSE.txt`](Drivers/STM32L4xx_HAL_Driver/LICENSE.txt).
 
 > STMicroelectronics are trademarks of their respective owners. Use of these
 > names does **not** imply any endorsement by the trademark holders.
