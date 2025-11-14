@@ -4,7 +4,8 @@
 
 STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 
-- CAN bus and UART enabled stepper motor closed loop controller.
+- CAN bus and UART enabled stepper motor.
+- Closed-loop position and speed control.
 
 ---
 
