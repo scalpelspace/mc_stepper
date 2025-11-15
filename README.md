@@ -30,9 +30,12 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 
 ### 1.1 Bill of Materials (BOM)
 
-| Manufacturer Part Number | Manufacturer       | Description | Quantity | Notes |
-|--------------------------|--------------------|-------------|---------:|-------|
-| STM32L432KC              | STMicroelectronics | 32-bit MCU  |        1 |       |
+| Manufacturer Part Number | Manufacturer                         | Description             | Quantity | Notes |
+|--------------------------|--------------------------------------|-------------------------|---------:|-------|
+| STM32L432KC              | STMicroelectronics                   | 32-bit MCU              |        1 |       |
+| TJA1057BTK               | NXP USA Inc.                         | CAN Bus Transceiver     |        1 |       |
+| AS5147P                  | ams-OSRAM USA INC.                   | Magnetic Rotary Encoder |        1 |       |
+| TMC2209                  | Analog Devices Inc./Maxim Integrated | Bipolar Motor Driver    |        1 |       |
 
 ### 1.2 Block Diagram
 
@@ -54,13 +57,19 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 
 | STM32L432KC | Peripheral       | Config     | Connection                | Notes |
 |-------------|------------------|------------|---------------------------|-------|
-| PB3         | `SYS_JTDO-SWO`   |            | TC2050 SWD Pin 6: `SWO`   |       |
 | PA14        | `SYS_JTCK-SWCLK` |            | TC2050 SWD Pin 4: `SWCLK` |       |
 | PA13        | `SYS_JTMS-SWDIO` |            | TC2050 SWD Pin 2: `SWDIO` |       |
 | PA10        | `USART1_RX`      | 115200 bps | `TX`                      |       |
 | PA9         | `USART1_TX`      | 115200 bps | `RX`                      |       |
-| PA11        | `FDCAN1_RX`      |            | TJA1057BTK Pin 1: `TXD`   |       |
-| PA12        | `FDCAN1_TX`      |            | TJA1057BTK Pin 4: `RXD`   |       |
+| PA11        | `CAN1_RX`        |            | TJA1057BTK Pin 1: `TXD`   |       |
+| PA12        | `CAN1_TX`        |            | TJA1057BTK Pin 4: `RXD`   |       |
+| PA1         | `TIM2_CH1`       |            | AS5147P Pin 1: `CSn`      |       |
+| PA5         | `TIM2_CH2`       |            | AS5147P Pin 2: `CLK`      |       |
+| PA4         | `GPIO_EXTI4`     |            | AS5147P Pin 3: `MISO`     |       |
+| PA4         | `GPIO_EXTI4`     |            | AS5147P Pin 4: `MOSI`     |       |
+| PA1         | `TIM2_CH1`       |            | AS5147P Pin 7: `A`        |       |
+| PA5         | `TIM2_CH2`       |            | AS5147P Pin 6: `B`        |       |
+| PA4         | `GPIO_EXTI4`     |            | AS5147P Pin 14: `I`       |       |
 
 </details>
 
