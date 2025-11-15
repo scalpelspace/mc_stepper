@@ -36,6 +36,7 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 | TJA1057BTK               | NXP USA Inc.                         | CAN Bus Transceiver     |        1 |       |
 | AS5147P                  | ams-OSRAM USA INC.                   | Magnetic Rotary Encoder |        1 |       |
 | TMC2209                  | Analog Devices Inc./Maxim Integrated | Bipolar Motor Driver    |        1 |       |
+| WS2812B                  | (Various)                            | PWM Addressable RGB LED |        1 |       |
 
 ### 1.2 Block Diagram
 
@@ -55,21 +56,26 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 <details markdown="1">
   <summary>Pin & Peripherals Table</summary>
 
-| STM32L432KC | Peripheral       | Config     | Connection                | Notes |
-|-------------|------------------|------------|---------------------------|-------|
-| PA14        | `SYS_JTCK-SWCLK` |            | TC2050 SWD Pin 4: `SWCLK` |       |
-| PA13        | `SYS_JTMS-SWDIO` |            | TC2050 SWD Pin 2: `SWDIO` |       |
-| PA10        | `USART1_RX`      | 115200 bps | `TX`                      |       |
-| PA9         | `USART1_TX`      | 115200 bps | `RX`                      |       |
-| PA11        | `CAN1_RX`        |            | TJA1057BTK Pin 1: `TXD`   |       |
-| PA12        | `CAN1_TX`        |            | TJA1057BTK Pin 4: `RXD`   |       |
-| PA1         | `TIM2_CH1`       |            | AS5147P Pin 1: `CSn`      |       |
-| PA5         | `TIM2_CH2`       |            | AS5147P Pin 2: `CLK`      |       |
-| PA4         | `GPIO_EXTI4`     |            | AS5147P Pin 3: `MISO`     |       |
-| PA4         | `GPIO_EXTI4`     |            | AS5147P Pin 4: `MOSI`     |       |
-| PA1         | `TIM2_CH1`       |            | AS5147P Pin 7: `A`        |       |
-| PA5         | `TIM2_CH2`       |            | AS5147P Pin 6: `B`        |       |
-| PA4         | `GPIO_EXTI4`     |            | AS5147P Pin 14: `I`       |       |
+| STM32L432KC | Peripheral       | Config                    | Connection                 | Notes                                 |
+|-------------|------------------|---------------------------|----------------------------|---------------------------------------|
+| PA14        | `SYS_JTCK-SWCLK` |                           | TC2050 SWD Pin 4: `SWCLK`  |                                       |
+| PA13        | `SYS_JTMS-SWDIO` |                           | TC2050 SWD Pin 2: `SWDIO`  |                                       |
+| PA10        | `USART1_RX`      | 115200 bps                | `TX`                       |                                       |
+| PA9         | `USART1_TX`      | 115200 bps                | `RX`                       |                                       |
+| PA11        | `CAN1_RX`        |                           | TJA1057BTK Pin 1: `TXD`    |                                       |
+| PA12        | `CAN1_TX`        |                           | TJA1057BTK Pin 4: `RXD`    |                                       |
+| PA1         | `TIM2_CH1`       |                           | AS5147P Pin 1: `CSn`       |                                       |
+| PA5         | `TIM2_CH2`       |                           | AS5147P Pin 2: `CLK`       |                                       |
+| PA4         | `GPIO_EXTI4`     |                           | AS5147P Pin 3: `MISO`      |                                       |
+| PA4         | `GPIO_EXTI4`     |                           | AS5147P Pin 4: `MOSI`      |                                       |
+| PA1         | `TIM2_CH1`       | TIM2 encoder mode         | AS5147P Pin 7: `A`         |                                       |
+| PA5         | `TIM2_CH2`       | TIM2 encoder mode         | AS5147P Pin 6: `B`         |                                       |
+| PA4         | `GPIO_EXTI4`     | Encoder index             | AS5147P Pin 14: `I`        |                                       |
+| P?? TODO ?? | `GPIO_Output`    |                           | TMC2209 Pin 2: `ENN`       |                                       |
+| PA2         | `USART2_TX`      | Single Wire (Half-Duplex) | TMC2209 Pin 14: `PDN_UART` |                                       |
+| PA3         | `TIM15_CH2`      | PWM Generation CH2        | TMC2209 Pin 16: `STEP`     |                                       |
+| P?? TODO ?? | `GPIO_Output`    |                           | TMC2209 Pin 19: `DIR`      |                                       |
+| PA8         | `TIM1_CH1`       | PWM Generation CH1        | WS2812B Pin: `DIN`         | DIN pin number depends on IC variant. |
 
 </details>
 
