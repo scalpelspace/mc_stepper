@@ -74,7 +74,10 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 | P?? TODO ?? | `GPIO_Output`    |                           | TMC2209 Pin 2: `ENN`       |                                       |
 | PA2         | `USART2_TX`      | Single Wire (Half-Duplex) | TMC2209 Pin 14: `PDN_UART` |                                       |
 | PA3         | `TIM15_CH2`      | PWM Generation CH2        | TMC2209 Pin 16: `STEP`     |                                       |
+| P?? TODO ?? | `GPIO_Output`    |                           | TMC2209 Pin 9: `MS1`       |                                       |
+| P?? TODO ?? | `GPIO_Output`    |                           | TMC2209 Pin 10: `MS2`      |                                       |
 | P?? TODO ?? | `GPIO_Output`    |                           | TMC2209 Pin 19: `DIR`      |                                       |
+| P?? TODO ?? | `GPIO_Output`    |                           | TMC2209 Pin 20: `STDBY`    |                                       |
 | PA8         | `TIM1_CH1`       | PWM Generation CH1        | WS2812B Pin: `DIN`         | DIN pin number depends on IC variant. |
 
 </details>
