@@ -56,7 +56,7 @@ inline void as5047p_spi_transmit(uint16_t data) {
  *
  * @return Received data.
  */
-inline uint16_t as5047p_spi_receive() {
+inline uint16_t as5047p_spi_receive(void) {
   uint16_t data;
   HAL_SPI_Receive(&AS5047P_HSPI, (uint8_t *)&data, sizeof(uint16_t),
                   HAL_MAX_DELAY);
@@ -79,9 +79,9 @@ uint8_t is_even_parity(uint16_t data) {
  * @brief Sending read or write command to AS5047P.
  *
  * @param address Register address.
- * @param op_read_write Read of write opration.
+ * @param op_read_write Read of write operation.
  */
-void as5047p_send_command(uint16_t address, uint8_t op_read_write) {
+void as5047p_send_command(const uint16_t address, const uint8_t op_read_write) {
   uint16_t frame = address & 0x3FFF;
 
   // R/W: 0 for write, 1 for read.
@@ -109,7 +109,7 @@ inline void as5047p_nop(void) {
  * @param address Register address.
  * @param data Data.
  */
-void as5047p_send_data(uint16_t address, uint16_t data) {
+void as5047p_send_data(const uint16_t address, const uint16_t data) {
   uint16_t frame = data & 0x3FFF;
 
   // Data frame bit 14 always low(0).

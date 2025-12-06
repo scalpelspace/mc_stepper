@@ -43,10 +43,10 @@ void as5047p_reset(void);
 void as5047p_init(uint8_t settings1, uint8_t settings2);
 
 /**
-   * @brief Set specify position as zero.
-   *
-   * @param position Position raw value.
-   */
+ * @brief Set specify position as zero.
+ *
+ * @param position Position raw value.
+ */
 void as5047p_set_zero(uint16_t position);
 
 /**
@@ -57,7 +57,7 @@ void as5047p_get_angle(void);
 /**
  * @brief Reading error flags.
  *
- * @return Error flags. 0 for no error occurred.
+ * @return Error flags. 0 for no errors occurred.
  */
 uint16_t as5047p_get_error_status(void);
 
