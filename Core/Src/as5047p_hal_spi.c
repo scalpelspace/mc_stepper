@@ -1,0 +1,203 @@
+/*******************************************************************************
+ * @file as5047p_hal_spi.c
+ * @brief AS5047P functions: abstracting STM32 HAL: SPI.
+ *******************************************************************************
+ */
+
+/** Includes. *****************************************************************/
+
+#include "as5047p_hal_spi.h"
+
+/** Definitions. **************************************************************/
+
+#define BIT_MODITY(src, i, val) ((src) ^= (-(val) ^ (src)) & (1UL << (i)))
+#define BIT_READ(src, i) (((src) >> (i) & 1U))
+#define BIT_TOGGLE(src, i) ((src) ^= 1UL << (i))
+
+// Volatile register address.
+#define AS5047P_NOP ((uint16_t)0x0000)
+#define AS5047P_ERRFL ((uint16_t)0x0001)
+#define AS5047P_PROG ((uint16_t)0x0003)
+#define AS5047P_DIAAGC ((uint16_t)0x3FFC)
+#define AS5047P_MAG ((uint16_t)0x3FFD)
+#define AS5047P_ANGLEUNC ((uint16_t)0x3FFE)
+#define AS5047P_ANGLECOM ((uint16_t)0x3FFF)
+
+// Non-Volatile register address.
+#define AS5047P_ZPOSM ((uint16_t)0x0016)
+#define AS5047P_ZPOSL ((uint16_t)0x0017)
+#define AS5047P_SETTINGS1 ((uint16_t)0x0018)
+#define AS5047P_SETTINGS2 ((uint16_t)0x0019)
+
+#define AS5047P_STEEINGS1_DEFAULT ((uint8_t)0x01)
+#define AS5047P_STEEINGS2_DEFAULT ((uint8_t)0x00)
+
+#define OP_WRITE ((uint8_t)0)
+#define OP_READ ((uint8_t)1)
+
+/** Public variables. *********************************************************/
+
+float as5047p_angle_deg = 0;
+
+/** Private functions. ********************************************************/
+
+/**
+ * @brief Start SPI transmit.
+ *
+ * @param data Data.
+ */
+inline void as5047p_spi_transmit(uint16_t data) {
+  HAL_SPI_Transmit(&AS5047P_HSPI, (uint8_t *)&data, sizeof(uint16_t),
+                   HAL_MAX_DELAY);
+}
+
+/**
+ * @brief Start SPI receive.
+ *
+ * @return Received data.
+ */
+inline uint16_t as5047p_spi_receive() {
+  uint16_t data;
+  HAL_SPI_Receive(&AS5047P_HSPI, (uint8_t *)&data, sizeof(uint16_t),
+                  HAL_MAX_DELAY);
+  return data;
+}
+
+/**
+ * @brief Check data even parity.
+ */
+uint8_t is_even_parity(uint16_t data) {
+  uint8_t shift = 1;
+  while (shift < (sizeof(data) * 8)) {
+    data ^= (data >> shift);
+    shift <<= 1;
+  }
+  return !(data & 0x1);
+}
+
+/**
+ * @brief Sending read or write command to AS5047P.
+ *
+ * @param address Register address.
+ * @param op_read_write Read of write opration.
+ */
+void as5047p_send_command(uint16_t address, uint8_t op_read_write) {
+  uint16_t frame = address & 0x3FFF;
+
+  // R/W: 0 for write, 1 for read.
+  BIT_MODITY(frame, 14, op_read_write);
+
+  // Parity bit(even) calculated on the lower 15 bits.
+  if (!is_even_parity(frame)) {
+    BIT_TOGGLE(frame, 15);
+  }
+
+  as5047p_spi_transmit(frame);
+}
+
+/**
+ * @brief No operation instruction.
+ */
+inline void as5047p_nop(void) {
+  // Reading the NOP register is equivalent to a nop (no operation) instruction.
+  as5047p_send_command(AS5047P_NOP, OP_READ);
+}
+
+/**
+ * @brief Sending data to register.
+ *
+ * @param address Register address.
+ * @param data Data.
+ */
+void as5047p_send_data(uint16_t address, uint16_t data) {
+  uint16_t frame = data & 0x3FFF;
+
+  // Data frame bit 14 always low(0).
+  BIT_MODITY(frame, 14, 0);
+
+  // Parity bit(even) calculated on the lower 15 bits.
+  if (!is_even_parity(frame)) {
+    BIT_TOGGLE(frame, 15);
+  }
+
+  as5047p_send_command(address, OP_WRITE);
+  as5047p_spi_transmit(frame);
+}
+
+/**
+ * @brief Reading data from register.
+ *
+ * @param address Register address.
+ *
+ * @return Data.
+ */
+uint16_t as5047p_read_data(uint16_t address) {
+  as5047p_send_command(address, OP_READ);
+  return as5047p_spi_receive();
+}
+
+/**
+ * @brief Read current position.
+ *
+ * @param position Current position raw value.
+ *
+ * @return Status.
+ * @retval == 0 -> Success.
+ * @retval < 0  -> Error.
+ */
+int8_t as5047p_get_position(uint16_t *position) {
+#if AS5047P_USE_DAEC
+  // Measured counts with dynamic angle error compensation.
+  const uint16_t address = AS5047P_ANGLECOM;
+#else
+  // Measured counts with dynamic angle error compensation.
+  const uint16_t address = AS5047P_ANGLEUNC;
+#endif
+  const uint16_t data = as5047p_read_data(address);
+  if (BIT_READ(data, 14) == 0) {
+    *position = data & 0x3FFF;
+    return 0; // No error.
+  }
+  return -1; // Error occurred.
+}
+
+/** Public functions. *********************************************************/
+
+void as5047p_reset(void) {
+  as5047p_init(AS5047P_STEEINGS1_DEFAULT, AS5047P_STEEINGS2_DEFAULT);
+  as5047p_set_zero(0);
+}
+
+void as5047p_init(uint8_t settings1, uint8_t settings2) {
+  // SETTINGS1 bit 0 -> Factory Setting: Pre-Programmed to 1.
+  BIT_MODITY(settings1, 0, 1);
+
+  // SETTINGS1 bit 1 -> Not Used: Pre-Programmed to 0, must not be overwritten.
+  BIT_MODITY(settings1, 1, 0);
+
+  as5047p_send_data(AS5047P_SETTINGS1, (uint16_t)(settings1 & 0x00FF));
+  as5047p_send_data(AS5047P_SETTINGS2, (uint16_t)(settings2 & 0x00FF));
+}
+
+uint16_t as5047p_get_error_status(void) {
+  return as5047p_read_data(AS5047P_ERRFL);
+}
+
+void as5047p_get_angle(void) {
+  uint16_t raw_position;
+  const int8_t as5047p_error = as5047p_get_position(&raw_position);
+  if (as5047p_error == 0) {
+    // Angle (degrees) = value * (360 / 2^14).
+    as5047p_angle_deg = (float)(raw_position * (360.0 / 0x4000));
+  }
+}
+
+void as5047p_set_zero(const uint16_t position) {
+  // 8 most significant bits of the zero position.
+  as5047p_send_data(AS5047P_ZPOSM, ((position >> 6) & 0x00FF));
+
+  // 6 least significant bits of the zero position.
+  as5047p_send_data(AS5047P_ZPOSL, (position & 0x003F));
+
+  as5047p_nop();
+}
