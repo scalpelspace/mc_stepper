@@ -46,7 +46,7 @@ float as5047p_angle_deg = 0;
  *
  * @param data Data.
  */
-inline void as5047p_spi_transmit(uint16_t data) {
+static void as5047p_spi_transmit(uint16_t data) {
   HAL_SPI_Transmit(&AS5047P_HSPI, (uint8_t *)&data, sizeof(uint16_t),
                    HAL_MAX_DELAY);
 }
@@ -56,7 +56,7 @@ inline void as5047p_spi_transmit(uint16_t data) {
  *
  * @return Received data.
  */
-inline uint16_t as5047p_spi_receive(void) {
+static uint16_t as5047p_spi_receive(void) {
   uint16_t data;
   HAL_SPI_Receive(&AS5047P_HSPI, (uint8_t *)&data, sizeof(uint16_t),
                   HAL_MAX_DELAY);
@@ -66,7 +66,7 @@ inline uint16_t as5047p_spi_receive(void) {
 /**
  * @brief Check data even parity.
  */
-uint8_t is_even_parity(uint16_t data) {
+static uint8_t is_even_parity(uint16_t data) {
   uint8_t shift = 1;
   while (shift < (sizeof(data) * 8)) {
     data ^= (data >> shift);
@@ -81,7 +81,8 @@ uint8_t is_even_parity(uint16_t data) {
  * @param address Register address.
  * @param op_read_write Read of write operation.
  */
-void as5047p_send_command(const uint16_t address, const uint8_t op_read_write) {
+static void as5047p_send_command(const uint16_t address,
+                                 const uint8_t op_read_write) {
   uint16_t frame = address & 0x3FFF;
 
   // R/W: 0 for write, 1 for read.
@@ -98,7 +99,7 @@ void as5047p_send_command(const uint16_t address, const uint8_t op_read_write) {
 /**
  * @brief No operation instruction.
  */
-inline void as5047p_nop(void) {
+static void as5047p_nop(void) {
   // Reading the NOP register is equivalent to a nop (no operation) instruction.
   as5047p_send_command(AS5047P_NOP, OP_READ);
 }
@@ -109,7 +110,7 @@ inline void as5047p_nop(void) {
  * @param address Register address.
  * @param data Data.
  */
-void as5047p_send_data(const uint16_t address, const uint16_t data) {
+static void as5047p_send_data(const uint16_t address, const uint16_t data) {
   uint16_t frame = data & 0x3FFF;
 
   // Data frame bit 14 always low(0).
@@ -131,7 +132,7 @@ void as5047p_send_data(const uint16_t address, const uint16_t data) {
  *
  * @return Data.
  */
-uint16_t as5047p_read_data(uint16_t address) {
+static uint16_t as5047p_read_data(uint16_t address) {
   as5047p_send_command(address, OP_READ);
   return as5047p_spi_receive();
 }
@@ -145,7 +146,7 @@ uint16_t as5047p_read_data(uint16_t address) {
  * @retval == 0 -> Success.
  * @retval < 0  -> Error.
  */
-int8_t as5047p_get_position(uint16_t *position) {
+static int8_t as5047p_get_position(uint16_t *position) {
 #if AS5047P_USE_DAEC
   // Measured counts with dynamic angle error compensation.
   const uint16_t address = AS5047P_ANGLECOM;
