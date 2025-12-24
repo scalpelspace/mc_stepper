@@ -42,28 +42,6 @@ float as5047p_angle_deg = 0;
 /** Private functions. ********************************************************/
 
 /**
- * @brief Start SPI transmit.
- *
- * @param data Data.
- */
-static void as5047p_spi_transmit(uint16_t data) {
-  HAL_SPI_Transmit(&AS5047P_HSPI, (uint8_t *)&data, sizeof(uint16_t),
-                   HAL_MAX_DELAY);
-}
-
-/**
- * @brief Start SPI receive.
- *
- * @return Received data.
- */
-static uint16_t as5047p_spi_receive(void) {
-  uint16_t data;
-  HAL_SPI_Receive(&AS5047P_HSPI, (uint8_t *)&data, sizeof(uint16_t),
-                  HAL_MAX_DELAY);
-  return data;
-}
-
-/**
  * @brief Check data even parity.
  */
 static uint8_t is_even_parity(uint16_t data) {
@@ -76,10 +54,25 @@ static uint8_t is_even_parity(uint16_t data) {
 }
 
 /**
+ * @brief Transfer one 16-bit word over SPI (full-duplex).
+ *
+ * @param tx Word to transmit.
+ * @return Word received during the transfer.
+ */
+static uint16_t as5047p_spi_transfer16(uint16_t tx) {
+  uint16_t rx = 0;
+  HAL_SPI_TransmitReceive(&AS5047P_HSPI, (uint8_t *)&tx, (uint8_t *)&rx, 1,
+                          HAL_MAX_DELAY);
+  return rx;
+}
+
+/**
  * @brief Sending read or write command to AS5047P.
  *
  * @param address Register address.
  * @param op_read_write Read of write operation.
+ *
+ * @notes SPI CS pin managed externally.
  */
 static void as5047p_send_command(const uint16_t address,
                                  const uint8_t op_read_write) {
@@ -93,15 +86,23 @@ static void as5047p_send_command(const uint16_t address,
     BIT_TOGGLE(frame, 15);
   }
 
-  as5047p_spi_transmit(frame);
+  HAL_SPI_Transmit(&AS5047P_HSPI, (uint8_t *)&frame, 1, HAL_MAX_DELAY);
 }
 
 /**
  * @brief No operation instruction.
  */
 static void as5047p_nop(void) {
-  // Reading the NOP register is equivalent to a nop (no operation) instruction.
-  as5047p_send_command(AS5047P_NOP, OP_READ);
+  // NOP: clock one frame to flush/pipeline without changing registers.
+  uint16_t nop_frame = AS5047P_NOP & 0x3FFF;
+  BIT_MODITY(nop_frame, 14, OP_READ);
+  if (!is_even_parity(nop_frame & 0x7FFF)) {
+    BIT_TOGGLE(nop_frame, 15);
+  }
+
+  HAL_GPIO_WritePin(AS5047P_CSN_PORT, AS5047P_CSN_PIN, GPIO_PIN_RESET);
+  (void)as5047p_spi_transfer16(nop_frame);
+  HAL_GPIO_WritePin(AS5047P_CSN_PORT, AS5047P_CSN_PIN, GPIO_PIN_SET);
 }
 
 /**
@@ -113,16 +114,21 @@ static void as5047p_nop(void) {
 static void as5047p_send_data(const uint16_t address, const uint16_t data) {
   uint16_t frame = data & 0x3FFF;
 
-  // Data frame bit 14 always low(0).
+  // Data frame bit 14 always low.
   BIT_MODITY(frame, 14, 0);
 
-  // Parity bit(even) calculated on the lower 15 bits.
-  if (!is_even_parity(frame)) {
+  // Parity bit (even) over lower 15 bits.
+  if (!is_even_parity(frame & 0x7FFF)) {
     BIT_TOGGLE(frame, 15);
   }
 
+  HAL_GPIO_WritePin(AS5047P_CSN_PORT, AS5047P_CSN_PIN, GPIO_PIN_RESET);
   as5047p_send_command(address, OP_WRITE);
-  as5047p_spi_transmit(frame);
+  HAL_GPIO_WritePin(AS5047P_CSN_PORT, AS5047P_CSN_PIN, GPIO_PIN_SET);
+
+  HAL_GPIO_WritePin(AS5047P_CSN_PORT, AS5047P_CSN_PIN, GPIO_PIN_RESET);
+  HAL_SPI_Transmit(&AS5047P_HSPI, (uint8_t *)&frame, 1, HAL_MAX_DELAY);
+  HAL_GPIO_WritePin(AS5047P_CSN_PORT, AS5047P_CSN_PIN, GPIO_PIN_SET);
 }
 
 /**
@@ -133,8 +139,33 @@ static void as5047p_send_data(const uint16_t address, const uint16_t data) {
  * @return Data.
  */
 static uint16_t as5047p_read_data(uint16_t address) {
-  as5047p_send_command(address, OP_READ);
-  return as5047p_spi_receive();
+  uint16_t cmd = address & 0x3FFF;
+
+  // R/W: 0 for write, 1 for read.
+  BIT_MODITY(cmd, 14, OP_READ);
+
+  // Parity bit (even) over lower 15 bits.
+  if (!is_even_parity(cmd & 0x7FFF)) {
+    BIT_TOGGLE(cmd, 15);
+  }
+
+  // Frame 1: send read command (response is returned on the next frame).
+  HAL_GPIO_WritePin(AS5047P_CSN_PORT, AS5047P_CSN_PIN, GPIO_PIN_RESET);
+  (void)as5047p_spi_transfer16(cmd);
+  HAL_GPIO_WritePin(AS5047P_CSN_PORT, AS5047P_CSN_PIN, GPIO_PIN_SET);
+
+  // Frame 2: clock out the response using NOP.
+  uint16_t nop = AS5047P_NOP & 0x3FFF;
+  BIT_MODITY(nop, 14, OP_READ);
+  if (!is_even_parity(nop & 0x7FFF)) {
+    BIT_TOGGLE(nop, 15);
+  }
+
+  HAL_GPIO_WritePin(AS5047P_CSN_PORT, AS5047P_CSN_PIN, GPIO_PIN_RESET);
+  uint16_t data = as5047p_spi_transfer16(nop);
+  HAL_GPIO_WritePin(AS5047P_CSN_PORT, AS5047P_CSN_PIN, GPIO_PIN_SET);
+
+  return data;
 }
 
 /**
@@ -165,11 +196,17 @@ static int8_t as5047p_get_position(uint16_t *position) {
 /** Public functions. *********************************************************/
 
 void as5047p_reset(void) {
-  as5047p_init(AS5047P_STEEINGS1_DEFAULT, AS5047P_STEEINGS2_DEFAULT);
-  as5047p_set_zero(0);
+  HAL_GPIO_WritePin(AS5047P_CSN_PORT, AS5047P_CSN_PIN, GPIO_PIN_SET);
+  HAL_Delay(5);
+
+  // Clear pipeline.
+  as5047p_nop();
 }
 
 void as5047p_init(uint8_t settings1, uint8_t settings2) {
+  HAL_GPIO_WritePin(AS5047P_CSN_PORT, AS5047P_CSN_PIN, GPIO_PIN_SET);
+  HAL_Delay(5);
+
   // SETTINGS1 bit 0 -> Factory Setting: Pre-Programmed to 1.
   BIT_MODITY(settings1, 0, 1);
 
