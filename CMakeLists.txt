@@ -51,6 +51,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/abi_encoder_hal_tim.c
         Core/Src/as5047p_hal_spi.c
         Core/Src/pid.c
+        Core/Src/run.c
 )
 
 # Add include paths

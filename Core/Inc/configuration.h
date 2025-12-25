@@ -9,4 +9,7 @@
 
 /** Configuration definitions. ************************************************/
 
+#define MC_STEPPER_USE_ABSOLUTE_ENCODER 1 // Magnetic absolute encoder.
+#define MC_STEPPER_USE_RELATIVE_ENCODER 1 // ABI quadrature encoder.
+
 #endif

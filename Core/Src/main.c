@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "as5047p_hal_spi.h"
+#include "run.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -119,12 +119,8 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  as5047p_get_angle();
-  HAL_Delay(1);
-
   while (1) {
-    as5047p_get_angle();
-    HAL_Delay(20);
+    mc_stepper_run();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
