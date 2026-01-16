@@ -55,8 +55,10 @@ static void run_state_machine(void) {
   switch (sys_state) {
   case MC_STEPPER_INIT:
     state_init();
+    sys_state = MC_STEPPER_RUN;
     break;
   case MC_STEPPER_RUN:
+    as5047p_get_angle();
     break;
   }
 }
