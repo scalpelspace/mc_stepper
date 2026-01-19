@@ -19,9 +19,17 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
     * [1.2 Block Diagram](#12-block-diagram)
     * [1.3 Pin Configurations](#13-pin-configurations)
     * [1.4 Clock Configurations](#14-clock-configurations)
-  * [Closed Loop Controls](#closed-loop-controls)
-    * [Absolute Encoder](#absolute-encoder)
-    * [ABI (Quadrature) Encoder](#abi-quadrature-encoder)
+  * [2 TMC2209 Bipolar Motor Driver](#2-tmc2209-bipolar-motor-driver)
+    * [2.1 Background](#21-background)
+    * [2.2 Universal Synchronous/Asynchronous Receiver/Transmitter (USART)](#22-universal-synchronousasynchronous-receivertransmitter-usart)
+    * [2.3 Pulse Width Modulation (PWM) Timer](#23-pulse-width-modulation-pwm-timer)
+      * [2.3.1 Timer Calculations](#231-timer-calculations)
+      * [2.3.2 Direct Memory Access (DMA)](#232-direct-memory-access-dma)
+  * [3 Closed Loop Controls](#3-closed-loop-controls)
+    * [3.1 AS5147P Magnetic Rotary Encoder](#31-as5147p-magnetic-rotary-encoder)
+    * [3.1.1 Background](#311-background)
+    * [3.2 ABI (Quadrature) Encoder](#32-abi-quadrature-encoder)
+    * [3.2.1 Background](#321-background)
   * [Third-Party Licenses](#third-party-licenses)
 <!-- TOC -->
 
@@ -74,13 +82,13 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 | PA1         | `TIM2_CH1`              | TIM2 encoder mode          | AS5147P Pin 7: `A`         |                                       |
 | PA5         | `TIM2_CH2`              | TIM2 encoder mode          | AS5147P Pin 6: `B`         |                                       |
 | PA4         | `GPIO_EXTI4`            | Encoder index, rising edge | AS5147P Pin 14: `I`        |                                       |
-| PA7         | `GPIO_Output`           |                            | TMC2209 Pin 2: `ENN`       |                                       |
+| PA7         | `GPIO_Output`           | Set low                    | TMC2209 Pin 2: `ENN`       |                                       |
 | PA2         | `USART2_TX`             | Single Wire (Half-Duplex)  | TMC2209 Pin 14: `PDN_UART` |                                       |
 | PA3         | `TIM15_CH2`             | PWM Generation CH2         | TMC2209 Pin 16: `STEP`     |                                       |
-| PB1         | `GPIO_Output`           |                            | TMC2209 Pin 9: `MS1`       |                                       |
-| PB0         | `GPIO_Output`           |                            | TMC2209 Pin 10: `MS2`      |                                       |
+| PB1         | `GPIO_Output`           | Set low                    | TMC2209 Pin 9: `MS1`       |                                       |
+| PB0         | `GPIO_Output`           | Set low                    | TMC2209 Pin 10: `MS2`      |                                       |
 | PA6         | `GPIO_Output`           |                            | TMC2209 Pin 19: `DIR`      |                                       |
-|             |                         |                            | TMC2209 Pin 20: `STDBY`    |                                       |
+|             |                         | Hardware pull-down         | TMC2209 Pin 20: `STDBY`    |                                       |
 | PA8         | `TIM1_CH1`              | PWM Generation CH1         | WS2812B Pin: `DIN`         | DIN pin number depends on IC variant. |
 
 </details>
@@ -98,11 +106,33 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 
 ---
 
-## Closed Loop Controls
+## 2 TMC2209 Bipolar Motor Driver
 
-### Absolute Encoder
+### 2.1 Background
 
-### ABI (Quadrature) Encoder
+### 2.2 Universal Synchronous/Asynchronous Receiver/Transmitter (USART)
+
+UART is set in Single Wire (Half-Duplex), baud rate is set for 115200 bps.
+
+### 2.3 Pulse Width Modulation (PWM) Timer
+
+`APB2`: 80 MHz (clock for TIM2 PWM output channels).
+
+#### 2.3.1 Timer Calculations
+
+#### 2.3.2 Direct Memory Access (DMA)
+
+---
+
+## 3 Closed Loop Controls
+
+### 3.1 AS5147P Magnetic Rotary Encoder
+
+### 3.1.1 Background
+
+### 3.2 ABI (Quadrature) Encoder
+
+### 3.2.1 Background
 
 The AB quadrature encoder is implemented via `TIM2` (16-bit) and uses `GPIO_EXTI4` for the index (I) pin on the
 STM32L432KC.
