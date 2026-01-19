@@ -24,7 +24,6 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
     * [2.2 Universal Synchronous/Asynchronous Receiver/Transmitter (USART)](#22-universal-synchronousasynchronous-receivertransmitter-usart)
     * [2.3 Pulse Width Modulation (PWM) Timer](#23-pulse-width-modulation-pwm-timer)
       * [2.3.1 Timer Calculations](#231-timer-calculations)
-      * [2.3.2 Direct Memory Access (DMA)](#232-direct-memory-access-dma)
   * [3 Closed Loop Controls](#3-closed-loop-controls)
     * [3.1 AS5147P Magnetic Rotary Encoder](#31-as5147p-magnetic-rotary-encoder)
     * [3.1.1 Background](#311-background)
@@ -120,7 +119,20 @@ UART is set in Single Wire (Half-Duplex), baud rate is set for 115200 bps.
 
 #### 2.3.1 Timer Calculations
 
-#### 2.3.2 Direct Memory Access (DMA)
+Given the PWM equation:
+
+$$f_{PWM} = \frac{f_{TIM}}{ \left( ARR + 1 \right) \times \left( PSC + 1 \right) }$$
+
+- $f_{TIM} = 1 \space \mathrm{MHz}$
+    - Choosing 1 MHz (1 us per tick) to simplify calculations.
+- $ARR = 65535$
+    - Counter period.
+- $f_{PWM} = 1 \space \mathrm{MHz}$
+    - Aiming for 1 us ticks, or $1 \times 10 ^{-6} \space \mathrm{s}$.
+    - Calculating for required PWM frequency:
+        - $f_{PWM} = \frac{1}{1 \times 10 ^{-6} \space \mathrm{s}} = 1 \space \mathrm{MHz}$
+
+Thus, the prescaler, $PSC = 80 - 1$.
 
 ---
 
