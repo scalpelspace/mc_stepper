@@ -17,9 +17,6 @@
  * 256->0, 128->1, 64->2, 32->3, 16->4, 8->5, 4->6, 2->7, 1->8.
  */
 static bool microsteps_to_mres(const uint16_t microsteps, uint8_t *mres_out) {
-  if (!mres_out)
-    return false;
-
   switch (microsteps) {
   case 256:
     *mres_out = 0;
