@@ -4,8 +4,8 @@
  *******************************************************************************
  */
 
-#ifndef MC_STEPPER__HAL_UART_H
-#define MC_STEPPER__HAL_UART_H
+#ifndef MC_STEPPER__TMC2209_HAL_UART_H
+#define MC_STEPPER__TMC2209_HAL_UART_H
 
 /** Includes. *****************************************************************/
 
