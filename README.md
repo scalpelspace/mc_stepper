@@ -24,11 +24,11 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
     * [2.2 Universal Synchronous/Asynchronous Receiver/Transmitter (USART)](#22-universal-synchronousasynchronous-receivertransmitter-usart)
     * [2.3 Pulse Width Modulation (PWM) Timer](#23-pulse-width-modulation-pwm-timer)
       * [2.3.1 Timer Calculations](#231-timer-calculations)
-  * [3 Closed Loop Controls](#3-closed-loop-controls)
-    * [3.1 AS5147P Magnetic Rotary Encoder](#31-as5147p-magnetic-rotary-encoder)
-    * [3.1.1 Background](#311-background)
-    * [3.2 ABI (Quadrature) Encoder](#32-abi-quadrature-encoder)
-    * [3.2.1 Background](#321-background)
+      * [2.3.2 Nested Vectored Interrupt Controller (NVIC)](#232-nested-vectored-interrupt-controller-nvic)
+  * [3 AS5147P Magnetic Rotary Encoder](#3-as5147p-magnetic-rotary-encoder)
+    * [3.1 Background](#31-background)
+  * [4 ABI (Quadrature) Encoder](#4-abi-quadrature-encoder)
+    * [4.1 Background](#41-background)
   * [Third-Party Licenses](#third-party-licenses)
 <!-- TOC -->
 
@@ -115,7 +115,9 @@ UART is set in Single Wire (Half-Duplex), baud rate is set for 115200 bps.
 
 ### 2.3 Pulse Width Modulation (PWM) Timer
 
-`APB2`: 80 MHz (clock for TIM2 PWM output channels).
+`TIM15_CH2` is configured as a PWM output channel.
+
+`APB2`: 80 MHz (clock for `TIM15` PWM output channels).
 
 #### 2.3.1 Timer Calculations
 
@@ -134,20 +136,27 @@ $$f_{PWM} = \frac{f_{TIM}}{ \left( ARR + 1 \right) \times \left( PSC + 1 \right)
 
 Thus, the prescaler, $PSC = 80 - 1$.
 
+#### 2.3.2 Nested Vectored Interrupt Controller (NVIC)
+
+`TIM15` has its global interrupt enabled.
+
+- As a side effect of the STM32L432KC architecture, `TIM1` break interrupt is
+  also enabled (but not utilized).
+
 ---
 
-## 3 Closed Loop Controls
+## 3 AS5147P Magnetic Rotary Encoder
 
-### 3.1 AS5147P Magnetic Rotary Encoder
+### 3.1 Background
 
-### 3.1.1 Background
+---
 
-### 3.2 ABI (Quadrature) Encoder
+## 4 ABI (Quadrature) Encoder
 
-### 3.2.1 Background
+### 4.1 Background
 
-The AB quadrature encoder is implemented via `TIM2` (16-bit) and uses `GPIO_EXTI4` for the index (I) pin on the
-STM32L432KC.
+The AB quadrature encoder is implemented via `TIM2` (16-bit) and uses
+`GPIO_EXTI4` for the index (I) pin on the STM32L432KC.
 
 Default configuration:
 
