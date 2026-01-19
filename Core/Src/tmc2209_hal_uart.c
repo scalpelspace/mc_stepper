@@ -1,0 +1,174 @@
+/*******************************************************************************
+ * @file tmc2209_hal_uart.c
+ * @brief TMC2209 functions: abstracting STM32 HAL: UART.
+ *******************************************************************************
+ */
+
+/** Includes. *****************************************************************/
+
+#include "tmc2209_hal_uart.h"
+#include <stdbool.h>
+
+/** Private functions. ********************************************************/
+
+/**
+ * @brief Map microsteps -> MRES encoding.
+ *
+ * 256->0, 128->1, 64->2, 32->3, 16->4, 8->5, 4->6, 2->7, 1->8.
+ */
+static bool microsteps_to_mres(const uint16_t microsteps, uint8_t *mres_out) {
+  if (!mres_out)
+    return false;
+
+  switch (microsteps) {
+  case 256:
+    *mres_out = 0;
+    return true;
+  case 128:
+    *mres_out = 1;
+    return true;
+  case 64:
+    *mres_out = 2;
+    return true;
+  case 32:
+    *mres_out = 3;
+    return true;
+  case 16:
+    *mres_out = 4;
+    return true;
+  case 8:
+    *mres_out = 5;
+    return true;
+  case 4:
+    *mres_out = 6;
+    return true;
+  case 2:
+    *mres_out = 7;
+    return true;
+  case 1:
+    *mres_out = 8;
+    return true;
+  default:
+    return false;
+  }
+}
+
+/**
+ * @brief Compute CRC8 (polynomial 0x07, init 0x00), LSB-first.
+ *
+ * @param data Pointer to the data bytes to checksum.
+ * @param len Number of bytes in buf.
+ *
+ * @return The calculated CRC8.
+ */
+static uint8_t tmc_crc8(const uint8_t *data, const uint8_t len) {
+  uint8_t crc = 0;
+  for (uint8_t i = 0; i < len; i++) {
+    uint8_t cur = data[i];
+    for (uint8_t b = 0; b < 8; b++) {
+      const uint8_t mix = (crc ^ cur) & 0x01;
+      crc >>= 1;
+      if (mix)
+        crc ^= 0x8C; // Reversed poly of 0x07 for LSB-first.
+      cur >>= 1;
+    }
+  }
+  return crc;
+}
+
+/**
+ * @brief Write a frame (8 bytes).
+ *
+ * [0]=0x05, [1]=slave, [2]=reg|0x80, [3..6]=data MSB..LSB, [7]=crc over [0..6].
+ */
+static HAL_StatusTypeDef tmc2209_write_reg(const uint8_t reg,
+                                           const uint32_t value) {
+  uint8_t tx[8];
+  tx[0] = TMC2209_SYNC;
+  tx[1] = TMC2209_DEFAULT_ADDRESS & 0x7F;
+  tx[2] = ((reg & 0x7F) | 0x80); // Write bit.
+  tx[3] = (uint8_t)(value >> 24);
+  tx[4] = (uint8_t)(value >> 16);
+  tx[5] = (uint8_t)(value >> 8);
+  tx[6] = (uint8_t)(value >> 0);
+  tx[7] = tmc_crc8(tx, 7);
+
+  // Half-duplex: just transmit.
+  return HAL_UART_Transmit(&TMC2209_HUART, tx, sizeof(tx), TMC2209_TIMEOUT_MS);
+}
+
+/**
+ * @brief Send read request frame (4 bytes) and read frame (8 bytes).
+ *
+ * [0]=0x05, [1]=slave, [2]=reg (no write bit), [3]=crc over [0..2]
+ * [0]=0x05, [1]=0xFF? (or slave), [2]=reg, [3..6]=data, [7]=crc over [0..6]
+ */
+static HAL_StatusTypeDef tmc2209_read_reg(const uint8_t reg,
+                                          uint32_t *out_value) {
+  uint8_t req[4];
+  req[0] = TMC2209_SYNC;
+  req[1] = TMC2209_DEFAULT_ADDRESS & 0x7F;
+  req[2] = (reg & 0x7F); // Read.
+  req[3] = tmc_crc8(req, 3);
+
+  HAL_StatusTypeDef st =
+      HAL_UART_Transmit(&TMC2209_HUART, req, sizeof(req), TMC2209_TIMEOUT_MS);
+  if (st != HAL_OK)
+    return st;
+
+  uint8_t rx[8] = {0};
+  st = HAL_UART_Receive(&TMC2209_HUART, rx, sizeof(rx), TMC2209_TIMEOUT_MS);
+  if (st != HAL_OK)
+    return st;
+
+  // Basic validation.
+  if (rx[0] != TMC2209_SYNC)
+    return HAL_ERROR;
+  if ((rx[2] & 0x7F) != (reg & 0x7F)) // rx[2] should match reg.
+    return HAL_ERROR;
+
+  const uint8_t crc = tmc_crc8(rx, 7);
+  if (crc != rx[7])
+    return HAL_ERROR;
+
+  *out_value = ((uint32_t)rx[3] << 24) | ((uint32_t)rx[4] << 16) |
+               ((uint32_t)rx[5] << 8) | ((uint32_t)rx[6] << 0);
+
+  return HAL_OK;
+}
+
+/** Public functions. *********************************************************/
+
+HAL_StatusTypeDef tmc2209_clear_gstat(void) {
+  // Writing 1s clears flags in GSTAT.
+  return tmc2209_write_reg(TMC2209_REG_GSTAT, 0x00000007u);
+}
+
+HAL_StatusTypeDef tmc2209_set_microsteps(const uint16_t microsteps) {
+  uint8_t mres = 0;
+  if (!microsteps_to_mres(microsteps, &mres))
+    return HAL_ERROR;
+
+  uint32_t chopconf = 0;
+  const HAL_StatusTypeDef st =
+      tmc2209_read_reg(TMC2209_REG_CHOPCONF, &chopconf);
+  if (st != HAL_OK)
+    return st;
+
+  chopconf &= ~TMC2209_CHOPCONF_MRES_MASK;
+  chopconf |= ((uint32_t)mres << TMC2209_CHOPCONF_MRES_SHIFT);
+
+  return tmc2209_write_reg(TMC2209_REG_CHOPCONF, chopconf);
+}
+
+HAL_StatusTypeDef tmc2209_set_ihold_irun(const uint8_t ihold,
+                                         const uint8_t irun,
+                                         const uint8_t iholddelay) {
+  // IHOLD_IRUN bits:
+  // [4:0] IHOLD, [12:8] IRUN, [19:16] IHOLDDELAY.
+  uint32_t v = 0;
+  v |= ((uint32_t)(ihold & 0x1F) << 0);
+  v |= ((uint32_t)(irun & 0x1F) << 8);
+  v |= ((uint32_t)(iholddelay & 0x0F) << 16);
+  return tmc2209_write_reg(TMC2209_REG_IHOLD_IRUN, v);
+}
