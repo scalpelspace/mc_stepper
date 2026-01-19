@@ -59,6 +59,7 @@ void EXTI4_IRQHandler(void);
 void DMA1_Channel2_IRQHandler(void);
 void CAN1_RX0_IRQHandler(void);
 void CAN1_RX1_IRQHandler(void);
+void TIM1_BRK_TIM15_IRQHandler(void);
 /* USER CODE BEGIN EFP */
 
 /* USER CODE END EFP */
