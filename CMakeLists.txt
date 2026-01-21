@@ -55,6 +55,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/run.c
         Core/Src/tmc2209_hal_uart.c
         Core/Src/tmc2209_runner.c
+        Core/Src/ws2812b_hal_pwm.c
 )
 
 # Add include paths
