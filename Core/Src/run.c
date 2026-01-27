@@ -9,6 +9,7 @@
 #include "run.h"
 #include "abi_encoder_hal_tim.h"
 #include "as5047p_hal_spi.h"
+#include "can.h"
 #include "configuration.h"
 #include "ws2812b_hal_pwm.h"
 
@@ -30,8 +31,8 @@ static abi_encoder_t abi_encoder = {0};
 /** Private functions. ********************************************************/
 
 static void state_init(void) {
-  // TODO Low level peripherals.
-  // can_init();
+  // Low level peripherals.
+  can_init();
 
   // On-board miscellaneous components.
   ws2812b_init();

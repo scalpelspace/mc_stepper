@@ -48,9 +48,12 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         # Add user sources here
+        Core/mc_stepper_driver/can_driver/can_driver.c
+        Core/mc_stepper_driver/mc_stepper_can_dbc.c
         Core/Src/abi_encoder_hal_tim.c
         Core/Src/as5047p_hal_spi.c
         Core/Src/callbacks.c
+        Core/Src/can.c
         Core/Src/pid.c
         Core/Src/run.c
         Core/Src/tmc2209_hal_uart.c
@@ -61,6 +64,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
         # Add user defined include paths
+        Core/mc_stepper_driver
 )
 
 # Add project symbols (macros)
