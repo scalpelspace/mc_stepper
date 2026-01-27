@@ -18,9 +18,8 @@ extern SPI_HandleTypeDef hspi1;
 
 // SPI.
 #define AS5047P_HSPI hspi1
-// TODO: CSn pin subject to change for production (PA15, set high).
-#define AS5047P_CSN_PORT GPIOB
-#define AS5047P_CSN_PIN GPIO_PIN_0
+#define AS5047P_CSN_PORT GPIOA
+#define AS5047P_CSN_PIN GPIO_PIN_15
 
 /** Definitions. **************************************************************/
 
