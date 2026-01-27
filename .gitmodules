@@ -1,0 +1,3 @@
+[submodule "Core/mc_stepper_driver"]
+	path = Core/mc_stepper_driver
+	url = https://github.com/scalpelspace/mc_stepper_driver
