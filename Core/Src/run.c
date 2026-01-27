@@ -10,6 +10,7 @@
 #include "abi_encoder_hal_tim.h"
 #include "as5047p_hal_spi.h"
 #include "configuration.h"
+#include "ws2812b_hal_pwm.h"
 
 /** Private types. ************************************************************/
 
@@ -32,10 +33,10 @@ static void state_init(void) {
   // TODO Low level peripherals.
   // can_init();
 
-  // TODO On-board miscellaneous components.
-  // ws2812b_init();
-  // ws2812b_set_colour(0, 2, 1, 3); // Init colour.
-  // ws2812b_update();
+  // On-board miscellaneous components.
+  ws2812b_init();
+  ws2812b_set_colour(0, 2, 1, 3); // Init colour.
+  ws2812b_update();
 
   // TODO Scheduler.
   // scheduler_init(); // Initialize scheduler.
