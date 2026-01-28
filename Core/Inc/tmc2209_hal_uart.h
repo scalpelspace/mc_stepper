@@ -33,13 +33,6 @@ extern TIM_HandleTypeDef htim15;
 #define TMC2209_DIR_PORT GPIOA
 #define TMC2209_DIR_PIN GPIO_PIN_6
 
-// GPIO output for MS1, MS2 pins.
-// Note: Currently unused, left for reference.
-// #define TMC2209_MS1_PORT GPIOB
-// #define TMC2209_MS1_PIN GPIO_PIN_1
-// #define TMC2209_MS2_PORT GPIOB
-// #define TMC2209_MS2_PIN GPIO_PIN_0
-
 /** Definitions. **************************************************************/
 
 // Software driven configurations.

@@ -46,7 +46,7 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 | TJA1057BTK               | NXP USA Inc.                         | CAN Bus Transceiver     |        1 |       |
 | AS5147P                  | ams-OSRAM USA INC.                   | Magnetic Rotary Encoder |        1 |       |
 | TMC2209                  | Analog Devices Inc./Maxim Integrated | Bipolar Motor Driver    |        1 |       |
-| WS2812B                  | (Various)                            | PWM Addressable RGB LED |        1 |       |
+| WS2812B-2020             | (Various)                            | PWM Addressable RGB LED |        1 |       |
 
 ### 1.2 Block Diagram
 
@@ -81,12 +81,12 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 | PA1         | `TIM2_CH1`              | TIM2 encoder mode          | AS5147P Pin 7: `A`         |                                       |
 | PA5         | `TIM2_CH2`              | TIM2 encoder mode          | AS5147P Pin 6: `B`         |                                       |
 | PA4         | `GPIO_EXTI4`            | Encoder index, rising edge | AS5147P Pin 14: `I`        |                                       |
-| PA7         | `GPIO_Output`           | Set low                    | TMC2209 Pin 2: `ENN`       |                                       |
+| PA7         | `GPIO_Output`           | Hardware pull-up, set high | TMC2209 Pin 2: `ENN`       |                                       |
 | PA2         | `USART2_TX`             | Single Wire (Half-Duplex)  | TMC2209 Pin 14: `PDN_UART` |                                       |
 | PA3         | `TIM15_CH2`             | PWM Generation CH2         | TMC2209 Pin 16: `STEP`     |                                       |
-| PB1         | `GPIO_Output`           | Set low                    | TMC2209 Pin 9: `MS1`       |                                       |
-| PB0         | `GPIO_Output`           | Set low                    | TMC2209 Pin 10: `MS2`      |                                       |
-| PA6         | `GPIO_Output`           |                            | TMC2209 Pin 19: `DIR`      |                                       |
+|             |                         | Hardware GND               | TMC2209 Pin 9: `MS1`       |                                       |
+|             |                         | Hardware GND               | TMC2209 Pin 10: `MS2`      |                                       |
+| PA6         | `GPIO_Output`           | Set low                    | TMC2209 Pin 19: `DIR`      |                                       |
 |             |                         | Hardware pull-down         | TMC2209 Pin 20: `STDBY`    |                                       |
 | PA8         | `TIM1_CH1`              | PWM Generation CH1         | WS2812B Pin: `DIN`         | DIN pin number depends on IC variant. |
 
