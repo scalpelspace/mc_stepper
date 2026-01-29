@@ -28,8 +28,43 @@ void HAL_TIM_OC_DelayElapsedCallback_tmc2209(TIM_HandleTypeDef *htim) {
 /** Public functions. *********************************************************/
 
 HAL_StatusTypeDef tmc2209_init(void) {
+  HAL_StatusTypeDef result = HAL_OK;
+
+  // Disable.
+  HAL_GPIO_WritePin(TMC2209_ENN_PORT, TMC2209_ENN_PIN, GPIO_PIN_SET);
+  HAL_Delay(2); // Short delay.
+
+  // Clear GSTAT.
+  result = tmc2209_clear_gstat();
+  if (result != HAL_OK)
+    return result;
+
+  // Current sense configuration.
+  // TODO(Daniel): Change this to (false, true) in production and hardware fix.
+  result = tmc2209_set_current_sense(true, false);
+  if (result != HAL_OK)
+    return result;
+
+  // Set IHOLD, IRUN, IHOLDDELAY.
+  result = tmc2209_set_ihold_irun(4, 12, 8);
+  if (result != HAL_OK)
+    return result;
+
+  // Set step size.
+  result = tmc2209_set_microsteps(16);
+  if (result != HAL_OK)
+    return result;
+
+  // Start step PWM output.
   g_dt_ticks = 0;
-  return HAL_TIM_OC_Start_IT(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL);
+  result = HAL_TIM_OC_Start_IT(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL);
+  if (result != HAL_OK)
+    return result;
+
+  // Enable.
+  HAL_GPIO_WritePin(TMC2209_ENN_PORT, TMC2209_ENN_PIN, GPIO_PIN_RESET);
+
+  return result;
 }
 
 HAL_StatusTypeDef tmc2209_step_set_freq_hz(const uint32_t f_step_hz) {
