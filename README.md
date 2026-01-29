@@ -27,7 +27,7 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
       * [2.3.2 Nested Vectored Interrupt Controller (NVIC)](#232-nested-vectored-interrupt-controller-nvic)
   * [3 AS5147P Magnetic Rotary Encoder](#3-as5147p-magnetic-rotary-encoder)
     * [3.1 Background](#31-background)
-  * [4 ABI (Quadrature) Encoder](#4-abi-quadrature-encoder)
+  * [4 AB (Quadrature) Encoder](#4-ab-quadrature-encoder)
     * [4.1 Background](#41-background)
   * [Third-Party Licenses](#third-party-licenses)
 <!-- TOC -->
@@ -44,7 +44,8 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 |--------------------------|--------------------------------------|-------------------------|---------:|-------|
 | STM32L432KC              | STMicroelectronics                   | 32-bit MCU              |        1 |       |
 | TJA1057BTK               | NXP USA Inc.                         | CAN Bus Transceiver     |        1 |       |
-| AS5147P                  | ams-OSRAM USA INC.                   | Magnetic Rotary Encoder |        1 |       |
+| AS5047P                  | ams-OSRAM USA INC.                   | Magnetic Rotary Encoder |        1 |       |
+| (External)               | (Various)                            | AB Quadrature Encoder   |        1 |       |
 | TMC2209                  | Analog Devices Inc./Maxim Integrated | Bipolar Motor Driver    |        1 |       |
 | WS2812B-2020             | (Various)                            | PWM Addressable RGB LED |        1 |       |
 
@@ -151,7 +152,7 @@ Thus, the prescaler, $PSC = 80 - 1$.
 
 ---
 
-## 4 ABI (Quadrature) Encoder
+## 4 AB (Quadrature) Encoder
 
 ### 4.1 Background
 
