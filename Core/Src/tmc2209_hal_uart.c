@@ -7,7 +7,6 @@
 /** Includes. *****************************************************************/
 
 #include "tmc2209_hal_uart.h"
-#include <stdbool.h>
 
 /** Definitions. **************************************************************/
 
@@ -31,6 +30,10 @@
 
 #define TMC2209_CHOPCONF_MRES_SHIFT 24u
 #define TMC2209_CHOPCONF_MRES_MASK (0x0Fu << TMC2209_CHOPCONF_MRES_SHIFT)
+#define TMC2209_CHOPCONF_VSENSE_BIT (1u << 17)
+
+#define TMC2209_GCONF_I_SCALE_ANALOG_BIT (1u << 0)
+#define TMC2209_GCONF_INTERNAL_RSENSE_BIT (1u << 6)
 
 /** Private functions. ********************************************************/
 
@@ -191,4 +194,33 @@ HAL_StatusTypeDef tmc2209_set_ihold_irun(const uint8_t ihold,
   v |= ((uint32_t)(irun & 0x1F) << 8);
   v |= ((uint32_t)(iholddelay & 0x0F) << 16);
   return tmc2209_write_reg(TMC2209_REG_IHOLD_IRUN, v);
+}
+
+HAL_StatusTypeDef tmc2209_set_current_sense(const bool use_internal_rsense,
+                                            const bool vsense_low_018v) {
+  uint32_t gconf = 0;
+  HAL_StatusTypeDef st = tmc2209_read_reg(TMC2209_REG_GCONF, &gconf);
+  if (st != HAL_OK)
+    return st;
+
+  if (use_internal_rsense)
+    gconf |= TMC2209_GCONF_INTERNAL_RSENSE_BIT;
+  else
+    gconf &= ~TMC2209_GCONF_INTERNAL_RSENSE_BIT;
+
+  st = tmc2209_write_reg(TMC2209_REG_GCONF, gconf);
+  if (st != HAL_OK)
+    return st;
+
+  uint32_t chopconf = 0;
+  st = tmc2209_read_reg(TMC2209_REG_CHOPCONF, &chopconf);
+  if (st != HAL_OK)
+    return st;
+
+  if (vsense_low_018v)
+    chopconf |= TMC2209_CHOPCONF_VSENSE_BIT;
+  else
+    chopconf &= ~TMC2209_CHOPCONF_VSENSE_BIT;
+
+  return tmc2209_write_reg(TMC2209_REG_CHOPCONF, chopconf);
 }
