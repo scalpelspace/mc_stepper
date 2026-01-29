@@ -11,6 +11,7 @@
 #include "as5047p_hal_spi.h"
 #include "can.h"
 #include "configuration.h"
+#include "tmc2209_runner.h"
 #include "ws2812b_hal_pwm.h"
 
 /** Private types. ************************************************************/
@@ -42,6 +43,9 @@ static void state_init(void) {
   // TODO Scheduler.
   // scheduler_init(); // Initialize scheduler.
   // scheduler_add_task(bmp390_get_data, 10);
+
+  // TMC2209.
+  tmc2209_init();
 
   // Sensors.
 #if MC_STEPPER_USE_ABSOLUTE_ENCODER
