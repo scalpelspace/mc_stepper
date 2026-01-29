@@ -33,29 +33,6 @@ extern TIM_HandleTypeDef htim15;
 #define TMC2209_DIR_PORT GPIOA
 #define TMC2209_DIR_PIN GPIO_PIN_6
 
-/** Definitions. **************************************************************/
-
-// Software driven configurations.
-#define TMC2209_DEFAULT_ADDRESS (0u) // MS1, MS2 both ground.
-#define TMC2209_TIMEOUT_MS (10u)     // HAL blocking UART timeout.
-
-// Hardware datasheet defined configurations.
-#define TMC2209_SYNC (0x05)
-
-#define TMC2209_REG_GCONF (0x00)
-#define TMC2209_REG_GSTAT (0x01)
-#define TMC2209_REG_IOIN (0x06)
-#define TMC2209_REG_IHOLD_IRUN (0x10)
-#define TMC2209_REG_TPOWERDOWN (0x11)
-#define TMC2209_REG_TSTEP (0x12)
-#define TMC2209_REG_CHOPCONF (0x6C)
-#define TMC2209_REG_DRV_STATUS (0x6F)
-#define TMC2209_REG_PWMCONF (0x70)
-#define TMC2209_REG_PWM_SCALE (0x71)
-
-#define TMC2209_CHOPCONF_MRES_SHIFT 24u
-#define TMC2209_CHOPCONF_MRES_MASK (0x0Fu << TMC2209_CHOPCONF_MRES_SHIFT)
-
 /** Public functions. *********************************************************/
 
 HAL_StatusTypeDef tmc2209_clear_gstat(void);
