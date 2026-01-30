@@ -18,6 +18,7 @@
 
 extern UART_HandleTypeDef huart2;
 extern TIM_HandleTypeDef htim15;
+extern DAC_HandleTypeDef hdac1;
 
 // UART.
 #define TMC2209_HUART huart2
@@ -25,6 +26,10 @@ extern TIM_HandleTypeDef htim15;
 // Timer for step signal.
 #define TMC2209_HTIM htim15
 #define TMC2209_HTIM_CHANNEL TIM_CHANNEL_2
+
+// DAC output for VREF current limit control.
+#define TMC2209_VREF_DAC hdac1
+#define TMC2209_VREF_DAC_CHANNEL DAC_CHANNEL_1
 
 // GPIO output for enable pin.
 #define TMC2209_ENN_PORT GPIOA

@@ -39,6 +39,12 @@ HAL_StatusTypeDef tmc2209_init(void) {
   if (result != HAL_OK)
     return result;
 
+  // Enable and set DAC output for hardware voltage divider reference (VREF).
+  // TODO(Daniel): Change this in production for current sense reference.
+  HAL_DAC_Start(&TMC2209_VREF_DAC, TMC2209_VREF_DAC_CHANNEL);
+  HAL_DAC_SetValue(&TMC2209_VREF_DAC, TMC2209_VREF_DAC_CHANNEL, DAC_ALIGN_12B_R,
+                   2048); // (12-bit right-aligned).
+
   // Current sense configuration.
   // TODO(Daniel): Change this to (false, true) in production and hardware fix.
   result = tmc2209_set_current_sense(true, false);
