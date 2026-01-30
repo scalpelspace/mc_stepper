@@ -84,7 +84,7 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 | PA4         | `DAC1_OUT1`             |                            | TMC2209 Pin 17: `VREF` circuit |                                       |
 | PA7         | `GPIO_Output`           | Hardware pull-up, set high | TMC2209 Pin 2: `ENN`           |                                       |
 | PA2         | `USART2_TX`             | Single Wire (Half-Duplex)  | TMC2209 Pin 14: `PDN_UART`     |                                       |
-| PA3         | `TIM15_CH2`             | PWM Generation CH2         | TMC2209 Pin 16: `STEP`         |                                       |
+| PA3         | `TIM15_CH2`             | Output Compare CH2         | TMC2209 Pin 16: `STEP`         |                                       |
 |             |                         | Hardware GND               | TMC2209 Pin 9: `MS1`           |                                       |
 |             |                         | Hardware GND               | TMC2209 Pin 10: `MS2`          |                                       |
 | PA6         | `GPIO_Output`           | Set low                    | TMC2209 Pin 19: `DIR`          |                                       |
@@ -116,7 +116,8 @@ UART is set in Single Wire (Half-Duplex), baud rate is set for 115200 bps.
 
 ### 2.3 Pulse Width Modulation (PWM) Timer
 
-`TIM15_CH2` is configured as a PWM output channel.
+`TIM15_CH2` is configured as a Output Compare channel, using `Toggle on match`
+mode.
 
 `APB2`: 80 MHz (clock for `TIM15` PWM output channels).
 
