@@ -117,6 +117,7 @@ static HAL_StatusTypeDef tmc2209_write_reg(const uint8_t reg,
   tx[7] = tmc_crc8(tx, 7);
 
   // Half-duplex: just transmit.
+  HAL_HalfDuplex_EnableTransmitter(&TMC2209_HUART);
   return HAL_UART_Transmit(&TMC2209_HUART, tx, sizeof(tx), TMC2209_TIMEOUT_MS);
 }
 
@@ -134,13 +135,15 @@ static HAL_StatusTypeDef tmc2209_read_reg(const uint8_t reg,
   req[2] = (reg & 0x7F); // Read.
   req[3] = tmc_crc8(req, 3);
 
+  HAL_HalfDuplex_EnableTransmitter(&TMC2209_HUART);
   HAL_StatusTypeDef st =
-      HAL_UART_Transmit(&TMC2209_HUART, req, sizeof(req), TMC2209_TIMEOUT_MS);
+      HAL_UART_Transmit(&TMC2209_HUART, req, 4, TMC2209_TIMEOUT_MS);
   if (st != HAL_OK)
     return st;
 
+  HAL_HalfDuplex_EnableReceiver(&TMC2209_HUART);
   uint8_t rx[8] = {0};
-  st = HAL_UART_Receive(&TMC2209_HUART, rx, sizeof(rx), TMC2209_TIMEOUT_MS);
+  st = HAL_UART_Receive(&TMC2209_HUART, rx, 8, TMC2209_TIMEOUT_MS);
   if (st != HAL_OK)
     return st;
 
