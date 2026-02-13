@@ -87,13 +87,9 @@ static bool microsteps_to_mres(const uint16_t microsteps, uint8_t *mres_out) {
 static uint8_t tmc_crc8(const uint8_t *data, const uint8_t len) {
   uint8_t crc = 0;
   for (uint8_t i = 0; i < len; i++) {
-    uint8_t cur = data[i];
+    crc ^= data[i];
     for (uint8_t b = 0; b < 8; b++) {
-      const uint8_t mix = (crc ^ cur) & 0x01;
-      crc >>= 1;
-      if (mix)
-        crc ^= 0x8C; // Reversed poly of 0x07 for LSB-first.
-      cur >>= 1;
+      crc = (crc & 0x80) ? (uint8_t)((crc << 1) ^ 0x07) : (uint8_t)(crc << 1);
     }
   }
   return crc;
