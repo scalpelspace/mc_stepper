@@ -46,8 +46,7 @@ HAL_StatusTypeDef tmc2209_init(void) {
                    2048); // (12-bit right-aligned).
 
   // Current sense configuration.
-  // TODO(Daniel): Change this to (false, true) in production and hardware fix.
-  result = tmc2209_set_current_sense(true, false);
+  result = tmc2209_set_current_sense(false, false);
   if (result != HAL_OK)
     return result;
 
