@@ -203,7 +203,6 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
-    mc_stepper_run();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -705,8 +704,7 @@ void StartControlTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
-  for(;;)
-  {
+  for (;;) {
     osDelay(1);
   }
   /* USER CODE END 5 */
@@ -723,8 +721,7 @@ void StartSensorTask(void *argument)
 {
   /* USER CODE BEGIN StartSensorTask */
   /* Infinite loop */
-  for(;;)
-  {
+  for (;;) {
     osDelay(1);
   }
   /* USER CODE END StartSensorTask */
@@ -741,9 +738,8 @@ void StartTelemetryTask(void *argument)
 {
   /* USER CODE BEGIN StartTelemetryTask */
   /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
+  for (;;) {
+    osDelay(20);
   }
   /* USER CODE END StartTelemetryTask */
 }
@@ -759,9 +755,8 @@ void StartSafetyTask(void *argument)
 {
   /* USER CODE BEGIN StartSafetyTask */
   /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
+  for (;;) {
+    osDelay(5);
   }
   /* USER CODE END StartSafetyTask */
 }
