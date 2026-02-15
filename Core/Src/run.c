@@ -31,7 +31,20 @@ static abi_encoder_t abi_encoder = {0};
 
 /** Private functions. ********************************************************/
 
-static void state_init(void) {
+static void run_state_machine(void) {
+  switch (sys_state) {
+  case MC_STEPPER_INIT:
+    sys_state = MC_STEPPER_RUN;
+    break;
+  case MC_STEPPER_RUN:
+    as5047p_get_angle();
+    break;
+  }
+}
+
+/** Public functions. *********************************************************/
+
+void mc_stepper_init(void) {
   // Low level peripherals.
   can_init();
 
@@ -39,10 +52,6 @@ static void state_init(void) {
   ws2812b_init();
   ws2812b_set_colour(0, 2, 1, 3); // Init colour.
   ws2812b_update();
-
-  // TODO Scheduler.
-  // scheduler_init(); // Initialize scheduler.
-  // scheduler_add_task(bmp390_get_data, 10);
 
   // TMC2209.
   tmc2209_init();
@@ -55,23 +64,4 @@ static void state_init(void) {
 #if MC_STEPPER_USE_RELATIVE_ENCODER
   abi_encoder_init(&abi_encoder, &htim2);
 #endif
-}
-
-static void run_state_machine(void) {
-  switch (sys_state) {
-  case MC_STEPPER_INIT:
-    state_init();
-    sys_state = MC_STEPPER_RUN;
-    break;
-  case MC_STEPPER_RUN:
-    as5047p_get_angle();
-    break;
-  }
-}
-
-/** Public functions. *********************************************************/
-
-void mc_stepper_run(void) {
-  run_state_machine();
-  // TODO scheduler_run(); // Run the scheduler.
 }

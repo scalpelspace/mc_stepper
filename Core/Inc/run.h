@@ -11,6 +11,6 @@
 
 /** Public functions. *********************************************************/
 
-void mc_stepper_run(void);
+void mc_stepper_init(void);
 
 #endif

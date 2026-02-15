@@ -152,7 +152,7 @@ int main(void)
   MX_TIM1_Init();
   MX_DAC1_Init();
   /* USER CODE BEGIN 2 */
-
+  mc_stepper_init();
   /* USER CODE END 2 */
 
   /* Init scheduler */
