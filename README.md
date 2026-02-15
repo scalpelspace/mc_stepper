@@ -29,6 +29,7 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
     * [3.1 Background](#31-background)
   * [4 AB (Quadrature) Encoder](#4-ab-quadrature-encoder)
     * [4.1 Background](#41-background)
+  * [5 FreeRTOS](#5-freertos)
   * [Third-Party Licenses](#third-party-licenses)
 <!-- TOC -->
 
@@ -73,6 +74,7 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 | PA13        | `SYS_JTMS-SWDIO`        |                            | TC2050 SWD Pin 2: `SWDIO`      |                                       |
 | PA10        | `USART1_RX`             | 115200 bps                 | `TX`                           |                                       |
 | PA9         | `USART1_TX`             | 115200 bps                 | `RX`                           |                                       |
+|             | `TIM16`                 | SYS Timebase Source        |                                | SysTick utilized for FreeRTOS.        |
 | PA11        | `CAN1_RX`               |                            | TJA1057BTK Pin 1: `TXD`        |                                       |
 | PA12        | `CAN1_TX`               |                            | TJA1057BTK Pin 4: `RXD`        |                                       |
 | PA15        | `GPIO_Output` (SPI1 CS) | Set high                   | AS5147P Pin 1: `CSn`           |                                       |
@@ -164,6 +166,13 @@ Default configuration:
 - 3.3 V logic signal.
 - AB signals: Rising edge.
 - AB low-pass input filter value: 4.
+
+---
+
+## 5 FreeRTOS
+
+FreeRTOS (`CMSIS_V2`) is utilized for scheduling. SysTick is utilized for
+FreeRTOS timing, `TIM16` is used as the HAL SYS Timebase Source.
 
 ---
 
