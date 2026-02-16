@@ -36,6 +36,11 @@ typedef enum {
   CONTROLS_FAULT = 4,
 } controls_state_t;
 
+typedef struct {
+  float position_rad;   // Measured absolute position (rad).
+  float velocity_rad_s; // Measured velocity (rad/s).
+} controls_sensors_t;
+
 typedef enum {
   CONTROL_MODE_NONE = 0,
   CONTROL_MODE_POSITION = 1,
@@ -45,21 +50,18 @@ typedef enum {
 typedef struct {
   control_mode_t mode; // Control mode.
   float setpoint;      // Control setpoint by mode (rad or rad/s).
-  float timestamp;     // Timestamp.
 } mc_stepper_command_t;
 
 /** Public variables. *********************************************************/
 
-extern controls_state_t controls_state;
-
-// Sensor data.
-extern float sensor_position_rad;   // Measured absolute position (rad).
-extern float sensor_velocity_rad_s; // Measured velocity (rad/s).
+extern volatile controls_state_t controls_state;     // State machine.
+extern volatile controls_sensors_t controls_sensors; // Sensor data.
+extern volatile float step_rate_command;             // Set as steps/s.
 
 /** Public functions. *********************************************************/
 
 void controls_init(void);
-void controls_set_microsteps(uint8_t microsteps);
+void controls_set_microsteps(uint16_t microsteps);
 void controls_command(mc_stepper_command_t command);
 void controls_state_machine(void);
 
