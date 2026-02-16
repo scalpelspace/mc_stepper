@@ -13,11 +13,9 @@
 
 /** Public variables. *********************************************************/
 
-controls_state_t controls_state = CONTROLS_DISABLE;
-
-// Sensor data.
-float sensor_position_rad = 0;
-float sensor_velocity_rad_s = 0;
+volatile controls_state_t controls_state = CONTROLS_DISABLE;
+volatile controls_sensors_t controls_sensors = {0};
+volatile float step_rate_command = 0;
 
 /** Private variables. ********************************************************/
 
@@ -28,14 +26,13 @@ static control_mode_t prev_mode = CONTROL_MODE_NONE; // Previous control mode.
 // Controls inputs and outputs.
 static float position_setpoint = 0; // Set as rad.
 static float velocity_setpoint = 0; // Set as rad/s.
-static float step_rate_command = 0; // Set as steps/s.
 
 static pid_controller_t position_pd = {0}; // Outputs velocity (rad/s).
 static pid_controller_t velocity_pi = {0}; // Outputs step-rate (steps/s).
 
 // Stepper motor configuration.
 static uint16_t full_steps_per_rev = 200;
-static uint8_t microstep_config = 16;
+static uint16_t microstep_config = 16;
 static float steps_per_rad;
 
 static uint16_t on_target_ticks = 0;   // Position on-target latch count.
@@ -51,16 +48,16 @@ static void control_loop(void) {
     velocity_setpoint = cmd.setpoint; // (rad/s) to steps/s.
     step_rate_command =
         pid_update(&velocity_pi, velocity_setpoint * steps_per_rad,
-                   sensor_velocity_rad_s * steps_per_rad);
+                   controls_sensors.velocity_rad_s * steps_per_rad);
     break;
 
   case CONTROL_MODE_POSITION:
     position_setpoint = cmd.setpoint; // (rad) to steps.
-    velocity_setpoint =
-        pid_update(&position_pd, position_setpoint, sensor_position_rad);
+    velocity_setpoint = pid_update(&position_pd, position_setpoint,
+                                   controls_sensors.position_rad);
     step_rate_command =
         pid_update(&velocity_pi, velocity_setpoint * steps_per_rad,
-                   sensor_velocity_rad_s * steps_per_rad);
+                   controls_sensors.velocity_rad_s * steps_per_rad);
     break;
 
   default:
@@ -80,8 +77,8 @@ static bool on_position_target(void) {
   const float vel_tol = latched_on_target ? VELOCITY_TOLERANCE_EXIT_RAD_S
                                           : VELOCITY_TOLERANCE_ENTER_RAD_S;
 
-  const float pos_err = position_setpoint - sensor_position_rad;
-  const float vel_abs = fabsf(sensor_velocity_rad_s);
+  const float pos_err = position_setpoint - controls_sensors.position_rad;
+  const float vel_abs = fabsf(controls_sensors.velocity_rad_s);
 
   const bool in_band = (fabsf(pos_err) <= pos_tol) && (vel_abs <= vel_tol);
 
@@ -136,7 +133,7 @@ void controls_init(void) {
   latched_on_target = false;
 }
 
-void controls_set_microsteps(const uint8_t microsteps) {
+void controls_set_microsteps(const uint16_t microsteps) {
   // TODO: Improve to allow adjustment of microstepping at standstill.
   microstep_config = microsteps;
   steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
@@ -144,6 +141,7 @@ void controls_set_microsteps(const uint8_t microsteps) {
 }
 
 void controls_command(const mc_stepper_command_t command) {
+  // TODO: Implement command override policy.
   control_command = command;
   if (control_command.mode != prev_mode) {
     pid_init(&velocity_pi); // Reset, gains uneffected by init.
@@ -178,6 +176,7 @@ void controls_state_machine(void) {
     controls_state = CONTROLS_IDLE;
     break;
   case CONTROLS_FAULT:
+    step_rate_command = 0.0f; // Safety.
     break;
   default:
     break;
