@@ -22,6 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "controls.h"
 #include "run.h"
 /* USER CODE END Includes */
 
@@ -703,9 +704,11 @@ static void MX_GPIO_Init(void)
 void StartControlTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
+  uint32_t last = osKernelGetTickCount();
   /* Infinite loop */
   for (;;) {
-    osDelay(1);
+    controls_state_machine();
+    osDelayUntil(last += CONTROLS_PERIOD_MS);
   }
   /* USER CODE END 5 */
 }
