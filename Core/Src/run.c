@@ -11,36 +11,14 @@
 #include "as5047p_hal_spi.h"
 #include "can.h"
 #include "configuration.h"
+#include "controls.h"
 #include "tmc2209_runner.h"
 #include "ws2812b_hal_pwm.h"
 
-/** Private types. ************************************************************/
-
-typedef enum mc_stepper_state_e {
-  MC_STEPPER_INIT,
-  MC_STEPPER_RUN,
-} mc_stepper_state_t;
-
 /** Private variables. ********************************************************/
-
-// Central state machine.
-static mc_stepper_state_t sys_state = MC_STEPPER_INIT;
 
 // Sensor variables.
 static abi_encoder_t abi_encoder = {0};
-
-/** Private functions. ********************************************************/
-
-static void run_state_machine(void) {
-  switch (sys_state) {
-  case MC_STEPPER_INIT:
-    sys_state = MC_STEPPER_RUN;
-    break;
-  case MC_STEPPER_RUN:
-    as5047p_get_angle();
-    break;
-  }
-}
 
 /** Public functions. *********************************************************/
 
@@ -64,4 +42,7 @@ void mc_stepper_init(void) {
 #if MC_STEPPER_USE_RELATIVE_ENCODER
   abi_encoder_init(&abi_encoder, &htim2);
 #endif
+
+  // Closed-loop controls.
+  controls_init();
 }
