@@ -19,11 +19,16 @@ volatile float step_rate_command = 0;
 
 /** Private variables. ********************************************************/
 
+static osMutexId_t g_setpoint_mutex = NULL;
+static osMutexId_t g_sensors_mutex = NULL;
+
 static mc_stepper_command_t control_command = {0}; // Command input.
 
 static control_mode_t prev_mode = CONTROL_MODE_NONE; // Previous control mode.
 
 // Controls inputs and outputs.
+static controls_sensors_t cache_sensor_data = {0};
+static mc_stepper_command_t cache_command = {CONTROL_MODE_NONE, 0.0f};
 static float position_setpoint = 0; // Set as rad.
 static float velocity_setpoint = 0; // Set as rad/s.
 
@@ -38,26 +43,49 @@ static float steps_per_rad;
 static uint16_t on_target_ticks = 0;   // Position on-target latch count.
 static bool latched_on_target = false; // Position on-target latching check.
 
+/** Private mutex functions. **************************************************/
+
+static bool command_snapshot(mc_stepper_command_t *command) {
+  if (g_setpoint_mutex && osMutexAcquire(g_setpoint_mutex, 1) != osOK) {
+    return false;
+  }
+  *command = control_command;
+  if (g_setpoint_mutex)
+    osMutexRelease(g_setpoint_mutex);
+  return true;
+}
+
+static bool sensors_snapshot(controls_sensors_t *out) {
+  if (g_sensors_mutex && osMutexAcquire(g_sensors_mutex, 1) != osOK) {
+    return false;
+  }
+  *out = controls_sensors;
+  if (g_sensors_mutex)
+    osMutexRelease(g_sensors_mutex);
+  return true;
+}
+
 /** Private functions. ********************************************************/
 
-static void control_loop(void) {
-  const mc_stepper_command_t cmd = control_command;
-  switch (cmd.mode) {
+static void control_loop(const mc_stepper_command_t command,
+                         const controls_sensors_t sensors) {
+
+  switch (command.mode) {
 
   case CONTROL_MODE_SPEED:
-    velocity_setpoint = cmd.setpoint; // (rad/s) to steps/s.
+    velocity_setpoint = command.setpoint;
     step_rate_command =
         pid_update(&velocity_pi, velocity_setpoint * steps_per_rad,
-                   controls_sensors.velocity_rad_s * steps_per_rad);
+                   sensors.velocity_rad_s * steps_per_rad);
     break;
 
   case CONTROL_MODE_POSITION:
-    position_setpoint = cmd.setpoint; // (rad) to steps.
-    velocity_setpoint = pid_update(&position_pd, position_setpoint,
-                                   controls_sensors.position_rad);
+    position_setpoint = command.setpoint;
+    velocity_setpoint =
+        pid_update(&position_pd, position_setpoint, sensors.position_rad);
     step_rate_command =
         pid_update(&velocity_pi, velocity_setpoint * steps_per_rad,
-                   controls_sensors.velocity_rad_s * steps_per_rad);
+                   sensors.velocity_rad_s * steps_per_rad);
     break;
 
   default:
@@ -66,9 +94,10 @@ static void control_loop(void) {
   }
 }
 
-static bool on_position_target(void) {
+static bool on_position_target(const mc_stepper_command_t command,
+                               const controls_sensors_t sensors) {
   // Only meaningful for position moves.
-  if (control_command.mode != CONTROL_MODE_POSITION)
+  if (command.mode != CONTROL_MODE_POSITION)
     return false;
 
   // Choose hysteresis thresholds depending on current latched state.
@@ -77,8 +106,8 @@ static bool on_position_target(void) {
   const float vel_tol = latched_on_target ? VELOCITY_TOLERANCE_EXIT_RAD_S
                                           : VELOCITY_TOLERANCE_ENTER_RAD_S;
 
-  const float pos_err = position_setpoint - controls_sensors.position_rad;
-  const float vel_abs = fabsf(controls_sensors.velocity_rad_s);
+  const float pos_err = command.setpoint - sensors.position_rad;
+  const float vel_abs = fabsf(sensors.velocity_rad_s);
 
   const bool in_band = (fabsf(pos_err) <= pos_tol) && (vel_abs <= vel_tol);
 
@@ -98,6 +127,12 @@ static bool on_position_target(void) {
 }
 
 /** Public functions. *********************************************************/
+
+void controls_set_mutexes(osMutexId_t setpoint_mutex,
+                          osMutexId_t sensors_mutex) {
+  g_setpoint_mutex = setpoint_mutex;
+  g_sensors_mutex = sensors_mutex;
+}
 
 void controls_init(void) {
   // Calculate step size config.
@@ -140,41 +175,76 @@ void controls_set_microsteps(const uint16_t microsteps) {
                   (2.0f * (float)M_PI);
 }
 
-void controls_command(const mc_stepper_command_t command) {
-  // TODO: Implement command override policy.
-  control_command = command;
-  if (control_command.mode != prev_mode) {
-    pid_init(&velocity_pi); // Reset, gains uneffected by init.
-    pid_init(&position_pd); // Reset, gains uneffected by init.
-    prev_mode = control_command.mode;
+void controls_set_setpoint(const mc_stepper_command_t command) {
+  if (g_setpoint_mutex) {
+    osMutexAcquire(g_setpoint_mutex, osWaitForever);
   }
 
-  // Reset position on target tick counter and latch variable.
-  on_target_ticks = 0;
-  latched_on_target = false;
+  // TODO: Implement command override policy.
+  control_command = command;
 
-  controls_state = CONTROLS_EXECUTING; // Transition state.
+  if (g_setpoint_mutex) {
+    osMutexRelease(g_setpoint_mutex);
+  }
+
+  controls_state = CONTROLS_START; // Transition state.
 }
 
 void controls_state_machine(void) {
+  mc_stepper_command_t cmd = {0};
+  controls_sensors_t data = {0};
+
   switch (controls_state) {
   case CONTROLS_DISABLE:
     step_rate_command = 0.0f; // Safety.
     break;
+
   case CONTROLS_IDLE:
     // Wait for new command.
     break;
+
+  case CONTROLS_START:
+    if (command_snapshot(&cmd)) {
+      cache_command = cmd;
+
+      if (cmd.mode != prev_mode) {
+        pid_init(&velocity_pi); // Reset, gains uneffected by init.
+        pid_init(&position_pd); // Reset, gains uneffected by init.
+        prev_mode = cmd.mode;
+      }
+      // Reset position on target tick counter and latch variable.
+      on_target_ticks = 0;
+      latched_on_target = false;
+
+      controls_state = CONTROLS_EXECUTING;
+    } else {
+      controls_state = CONTROLS_IDLE;
+    }
+    break;
+
   case CONTROLS_EXECUTING:
-    control_loop();
-    if (on_position_target()) {
+    if (command_snapshot(&cmd))
+      cache_command = cmd;
+    else
+      cmd = cache_command;
+
+    if (sensors_snapshot(&data))
+      cache_sensor_data = data;
+    else
+      data = cache_sensor_data;
+
+    control_loop(cmd, data);
+    if (on_position_target(cmd, data)) {
       // Transition state.
       controls_state = CONTROLS_ON_POSITION_TARGET;
     }
     break;
+
   case CONTROLS_ON_POSITION_TARGET:
     // TODO: TEST! Transition condition from ON_POSITION_TARGET to IDLE.
     controls_state = CONTROLS_IDLE;
     break;
+
   case CONTROLS_FAULT:
     step_rate_command = 0.0f; // Safety.
     break;
