@@ -19,16 +19,16 @@ controls_state_t controls_state = CONTROLS_DISABLE;
 float sensor_position_rad = 0;
 float sensor_velocity_rad_s = 0;
 
-// Controls inputs and outputs.
-float position_setpoint = 0;
-float velocity_setpoint = 0;
-float step_rate_command = 0;
-
 /** Private variables. ********************************************************/
 
 static mc_stepper_command_t control_command = {0}; // Command input.
 
 static control_mode_t prev_mode = CONTROL_MODE_NONE; // Previous control mode.
+
+// Controls inputs and outputs.
+static float position_setpoint = 0; // Set as rad.
+static float velocity_setpoint = 0; // Set as rad/s.
+static float step_rate_command = 0; // Set as steps/s.
 
 static pid_controller_t position_pd = {0}; // Outputs velocity (rad/s).
 static pid_controller_t velocity_pi = {0}; // Outputs step-rate (steps/s).
