@@ -27,6 +27,7 @@
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
+typedef StaticSemaphore_t osStaticMutexDef_t;
 /* USER CODE BEGIN PTD */
 
 /* USER CODE END PTD */
@@ -83,6 +84,22 @@ const osThreadAttr_t safetyTask_attributes = {
   .name = "safetyTask",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityHigh,
+};
+/* Definitions for controlsSetpointMutex */
+osMutexId_t controlsSetpointMutexHandle;
+osStaticMutexDef_t controlsSetpointMutexControlBlock;
+const osMutexAttr_t controlsSetpointMutex_attributes = {
+  .name = "controlsSetpointMutex",
+  .cb_mem = &controlsSetpointMutexControlBlock,
+  .cb_size = sizeof(controlsSetpointMutexControlBlock),
+};
+/* Definitions for sensorsMutex */
+osMutexId_t sensorsMutexHandle;
+osStaticMutexDef_t sensorsMutexControlBlock;
+const osMutexAttr_t sensorsMutex_attributes = {
+  .name = "sensorsMutex",
+  .cb_mem = &sensorsMutexControlBlock,
+  .cb_size = sizeof(sensorsMutexControlBlock),
 };
 /* USER CODE BEGIN PV */
 
@@ -158,9 +175,18 @@ int main(void)
 
   /* Init scheduler */
   osKernelInitialize();
+  /* Create the mutex(es) */
+  /* creation of controlsSetpointMutex */
+  controlsSetpointMutexHandle = osMutexNew(&controlsSetpointMutex_attributes);
+
+  /* creation of sensorsMutex */
+  sensorsMutexHandle = osMutexNew(&sensorsMutex_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
+
+  // Set mutexes used for controls.
+  controls_set_mutexes(controlsSetpointMutexHandle, sensorsMutexHandle);
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
