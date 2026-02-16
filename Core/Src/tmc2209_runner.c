@@ -95,3 +95,13 @@ HAL_StatusTypeDef tmc2209_step_set_freq_hz(const uint32_t f_step_hz) {
 
   return HAL_OK;
 }
+
+HAL_StatusTypeDef tmc2209_step_direction(const bool forward) {
+  if (forward) {
+    HAL_GPIO_WritePin(TMC2209_DIR_PORT, TMC2209_DIR_PIN, GPIO_PIN_RESET);
+  } else {
+    HAL_GPIO_WritePin(TMC2209_DIR_PORT, TMC2209_DIR_PIN, GPIO_PIN_SET);
+  }
+
+  return HAL_OK;
+}

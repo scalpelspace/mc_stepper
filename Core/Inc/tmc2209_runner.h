@@ -10,6 +10,7 @@
 /** Includes. *****************************************************************/
 
 #include "stm32l4xx_hal.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 /** User implementations into STM32 HAL (overwrite weak HAL functions). *******/
@@ -33,5 +34,14 @@ HAL_StatusTypeDef tmc2209_init(void);
  * @returns HAL_StatusTypeDef status.
  */
 HAL_StatusTypeDef tmc2209_step_set_freq_hz(uint32_t f_step_hz);
+
+/**
+ * @brief Set step direction.
+ *
+ * @param forward True for forward (low), false for backwards (high).
+ *
+ * @returns HAL_StatusTypeDef status.
+ */
+HAL_StatusTypeDef tmc2209_step_direction(bool forward);
 
 #endif
