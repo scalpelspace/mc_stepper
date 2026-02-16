@@ -56,11 +56,6 @@ extern controls_state_t controls_state;
 extern float sensor_position_rad;   // Measured absolute position (rad).
 extern float sensor_velocity_rad_s; // Measured velocity (rad/s).
 
-// Controls inputs and outputs.
-extern float position_setpoint; // Position setpoint (input, rad).
-extern float velocity_setpoint; // Velocity setpoint (input, rad/s).
-extern float step_rate_command; // Velocity command (output, steps/s).
-
 /** Public functions. *********************************************************/
 
 void controls_init(void);
