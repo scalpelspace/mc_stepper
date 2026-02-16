@@ -67,14 +67,34 @@ static bool sensors_snapshot(controls_sensors_t *out) {
 
 /** Private functions. ********************************************************/
 
+static float clampf(const float x, const float lo, const float hi) {
+  return (x < lo) ? lo : (x > hi) ? hi : x;
+}
+
+/**
+ * @brief Slew-limit the change in step rate to enforce a max acceleration.
+ *
+ * @param target Target step rate (steps/s).
+ *
+ * @return Slew-limited step rate command (steps/s).
+ */
+static float step_rate_slew_limit(const float target) {
+  const float max_delta =
+      MAX_STEP_ACCEL_STEPS_S2 * CONTROLS_PERIOD_S; // steps/s per tick.
+  const float delta =
+      clampf(target - step_rate_command, -max_delta, +max_delta);
+  return step_rate_command + delta;
+}
+
 static void control_loop(const mc_stepper_command_t command,
                          const controls_sensors_t sensors) {
+  float step_rate_target;
 
   switch (command.mode) {
 
   case CONTROL_MODE_SPEED:
     velocity_setpoint = command.setpoint;
-    step_rate_command =
+    step_rate_target =
         pid_update(&velocity_pi, velocity_setpoint * steps_per_rad,
                    sensors.velocity_rad_s * steps_per_rad);
     break;
@@ -83,15 +103,18 @@ static void control_loop(const mc_stepper_command_t command,
     position_setpoint = command.setpoint;
     velocity_setpoint =
         pid_update(&position_pd, position_setpoint, sensors.position_rad);
-    step_rate_command =
+    step_rate_target =
         pid_update(&velocity_pi, velocity_setpoint * steps_per_rad,
                    sensors.velocity_rad_s * steps_per_rad);
     break;
 
   default:
-    step_rate_command = 0.0f;
+    step_rate_target = 0.0f;
     break;
   }
+
+  // Apply step-rate acceleration/slew limiting (trapezoid-like behavior).
+  step_rate_command = step_rate_slew_limit(step_rate_target);
 }
 
 static bool on_position_target(const mc_stepper_command_t command,
@@ -212,6 +235,9 @@ void controls_state_machine(void) {
         pid_init(&position_pd); // Reset, gains uneffected by init.
         prev_mode = cmd.mode;
       }
+
+      step_rate_command = 0.0f; // Safety.
+
       // Reset position on target tick counter and latch variable.
       on_target_ticks = 0;
       latched_on_target = false;
