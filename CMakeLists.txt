@@ -54,6 +54,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/as5047p_hal_spi.c
         Core/Src/callbacks.c
         Core/Src/can.c
+        Core/Src/controls.c
         Core/Src/pid.c
         Core/Src/run.c
         Core/Src/tmc2209_hal_uart.c
