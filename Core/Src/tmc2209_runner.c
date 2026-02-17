@@ -7,6 +7,15 @@
 
 #include "tmc2209_runner.h"
 #include "tmc2209_hal_uart.h"
+#include <math.h>
+
+/** Definitions. **************************************************************/
+
+#define R_SENSE_OHM (110000U)      // 110mOhm.
+#define VFS_VOLTS (0.325f)         // 0.325V (vsense=0), 0.180V (vsense=1).
+#define VREF_MAX_VOLTS (2.5f)      // Max VREF specified by datasheet 2.5V.
+#define VREF_DIVIDER_GAIN (0.752f) // 3.3k / 10k divider.
+#define DAC_MAX_VOLTS (3.3f)       // STM32 DAC max voltage.
 
 /** Private variables. ********************************************************/
 
@@ -25,9 +34,40 @@ void HAL_TIM_OC_DelayElapsedCallback_tmc2209(TIM_HandleTypeDef *htim) {
   }
 }
 
+/** Private functions. ********************************************************/
+
+static float dac_voltage(const float run_current_ma, uint8_t tmc2209_irun) {
+  if (tmc2209_irun > 31) {
+    tmc2209_irun = 31;
+  }
+
+  const float i_rms = run_current_ma / 1000.0f;
+  float vref = (i_rms * 2.5f * 32.0f * (R_SENSE_OHM + 0.02f) * sqrtf(2.0f)) /
+               (((float)tmc2209_irun + 1.0f) * VFS_VOLTS);
+
+  // Clamp to safe VREF range.
+  if (vref > VREF_MAX_VOLTS) {
+    vref = VREF_MAX_VOLTS;
+  }
+  if (vref < 0.0f) {
+    vref = 0.0f;
+  }
+
+  // Convert VREF to DAC voltage using divider gain.
+  float dac_v = vref / VREF_DIVIDER_GAIN;
+  if (dac_v > DAC_MAX_VOLTS) {
+    dac_v = DAC_MAX_VOLTS;
+  }
+  return dac_v;
+}
+
+static uint16_t dac_counts_from_voltage(const float dac_voltage) {
+  return (uint16_t)((dac_voltage / 3.3f) * 4095.0f);
+}
+
 /** Public functions. *********************************************************/
 
-HAL_StatusTypeDef tmc2209_init(void) {
+HAL_StatusTypeDef tmc2209_init(const tmc2209_configuration_t config) {
   HAL_StatusTypeDef result = HAL_OK;
 
   // Disable.
@@ -39,24 +79,29 @@ HAL_StatusTypeDef tmc2209_init(void) {
   if (result != HAL_OK)
     return result;
 
+  // Calculate DAC output for VREF.
+  const float dac_v = dac_voltage(config.run_current_ma, config.current_run);
+  const uint16_t dac_counts = dac_counts_from_voltage(dac_v);
+
   // Enable and set DAC output for hardware voltage divider reference (VREF).
-  // TODO(Daniel): Change this in production for current sense reference.
   HAL_DAC_Start(&TMC2209_VREF_DAC, TMC2209_VREF_DAC_CHANNEL);
   HAL_DAC_SetValue(&TMC2209_VREF_DAC, TMC2209_VREF_DAC_CHANNEL, DAC_ALIGN_12B_R,
-                   2048); // (12-bit right-aligned).
+                   dac_counts); // (12-bit right-aligned).
 
   // Current sense configuration.
+  // TMC2209_VFS_VOLTS = false = 0.325 V.
   result = tmc2209_set_current_sense(false, false);
   if (result != HAL_OK)
     return result;
 
   // Set IHOLD, IRUN, IHOLDDELAY.
-  result = tmc2209_set_ihold_irun(4, 12, 8);
+  result = tmc2209_set_ihold_irun(config.current_hold, config.current_run,
+                                  config.current_hold_delay);
   if (result != HAL_OK)
     return result;
 
   // Set step size.
-  result = tmc2209_set_microsteps(16);
+  result = tmc2209_set_microsteps(config.step_size);
   if (result != HAL_OK)
     return result;
 
@@ -66,8 +111,10 @@ HAL_StatusTypeDef tmc2209_init(void) {
   if (result != HAL_OK)
     return result;
 
-  // Enable.
-  HAL_GPIO_WritePin(TMC2209_ENN_PORT, TMC2209_ENN_PIN, GPIO_PIN_RESET);
+  if (config.enable) {
+    // Enable.
+    HAL_GPIO_WritePin(TMC2209_ENN_PORT, TMC2209_ENN_PIN, GPIO_PIN_RESET);
+  }
 
   return result;
 }
