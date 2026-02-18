@@ -10,6 +10,7 @@
 /** Includes. *****************************************************************/
 
 #include "cmsis_os2.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 /** Definitions. **************************************************************/
@@ -71,7 +72,7 @@ void controls_set_mutexes(osMutexId_t setpoint_mutex,
                           osMutexId_t sensors_mutex);
 
 void controls_init(void);
-void controls_set_microsteps(uint16_t microsteps);
+bool controls_set_microsteps(uint16_t microsteps);
 void controls_set_setpoint(mc_stepper_command_t command);
 void controls_state_machine(void);
 
