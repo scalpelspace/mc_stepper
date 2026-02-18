@@ -85,6 +85,11 @@ const osThreadAttr_t safetyTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
+/* Definitions for commQueue */
+osMessageQueueId_t commQueueHandle;
+const osMessageQueueAttr_t commQueue_attributes = {
+  .name = "commQueue"
+};
 /* Definitions for controlsSetpointMutex */
 osMutexId_t controlsSetpointMutexHandle;
 osStaticMutexDef_t controlsSetpointMutexControlBlock;
@@ -196,6 +201,10 @@ int main(void)
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
+
+  /* Create the queue(s) */
+  /* creation of commQueue */
+  commQueueHandle = osMessageQueueNew (384, sizeof(char), &commQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
