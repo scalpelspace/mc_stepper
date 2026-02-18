@@ -18,8 +18,8 @@ volatile float step_rate_command = 0;
 
 /** Private variables. ********************************************************/
 
-static osMutexId_t g_setpoint_mutex = NULL;
-static osMutexId_t g_sensors_mutex = NULL;
+static osMutexId_t s_setpoint_mutex = NULL;
+static osMutexId_t s_sensors_mutex = NULL;
 
 static mc_stepper_command_t control_command = {0}; // Command input.
 
@@ -45,22 +45,22 @@ static bool latched_on_target = false; // Position on-target latching check.
 /** Private mutex functions. **************************************************/
 
 static bool command_snapshot(mc_stepper_command_t *command) {
-  if (g_setpoint_mutex && osMutexAcquire(g_setpoint_mutex, 1) != osOK) {
+  if (s_setpoint_mutex && osMutexAcquire(s_setpoint_mutex, 1) != osOK) {
     return false;
   }
   *command = control_command;
-  if (g_setpoint_mutex)
-    osMutexRelease(g_setpoint_mutex);
+  if (s_setpoint_mutex)
+    osMutexRelease(s_setpoint_mutex);
   return true;
 }
 
 static bool sensors_snapshot(controls_sensors_t *out) {
-  if (g_sensors_mutex && osMutexAcquire(g_sensors_mutex, 1) != osOK) {
+  if (s_sensors_mutex && osMutexAcquire(s_sensors_mutex, 1) != osOK) {
     return false;
   }
   *out = controls_sensors;
-  if (g_sensors_mutex)
-    osMutexRelease(g_sensors_mutex);
+  if (s_sensors_mutex)
+    osMutexRelease(s_sensors_mutex);
   return true;
 }
 
@@ -152,8 +152,8 @@ static bool on_position_target(const mc_stepper_command_t command,
 
 void controls_set_mutexes(osMutexId_t setpoint_mutex,
                           osMutexId_t sensors_mutex) {
-  g_setpoint_mutex = setpoint_mutex;
-  g_sensors_mutex = sensors_mutex;
+  s_setpoint_mutex = setpoint_mutex;
+  s_sensors_mutex = sensors_mutex;
 }
 
 void controls_init(void) {
@@ -202,15 +202,15 @@ bool controls_set_microsteps(const uint16_t microsteps) {
 }
 
 void controls_set_setpoint(const mc_stepper_command_t command) {
-  if (g_setpoint_mutex) {
-    osMutexAcquire(g_setpoint_mutex, osWaitForever);
+  if (s_setpoint_mutex) {
+    osMutexAcquire(s_setpoint_mutex, osWaitForever);
   }
 
   // TODO: Implement command override policy.
   control_command = command;
 
-  if (g_setpoint_mutex) {
-    osMutexRelease(g_setpoint_mutex);
+  if (s_setpoint_mutex) {
+    osMutexRelease(s_setpoint_mutex);
   }
 
   controls_state = CONTROLS_START; // Transition state.
