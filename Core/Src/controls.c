@@ -9,7 +9,6 @@
 #include "controls.h"
 #include "pid.h"
 #include <math.h>
-#include <stdbool.h>
 
 /** Public variables. *********************************************************/
 
@@ -191,11 +190,15 @@ void controls_init(void) {
   latched_on_target = false;
 }
 
-void controls_set_microsteps(const uint16_t microsteps) {
+bool controls_set_microsteps(const uint16_t microsteps) {
   // TODO: Improve to allow adjustment of microstepping at standstill.
-  microstep_config = microsteps;
-  steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
-                  (2.0f * (float)M_PI);
+  if (controls_state == CONTROLS_IDLE) {
+    microstep_config = microsteps;
+    steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
+                    (2.0f * (float)M_PI);
+    return true;
+  }
+  return false;
 }
 
 void controls_set_setpoint(const mc_stepper_command_t command) {
