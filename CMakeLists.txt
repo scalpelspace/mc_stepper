@@ -21,8 +21,6 @@ endif ()
 # Set the project name
 set(CMAKE_PROJECT_NAME mc_stepper)
 
-# Include toolchain file
-include("cmake/gcc-arm-none-eabi.cmake")
 
 # Enable compile command to ease indexing with e.g. clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
@@ -54,6 +52,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/as5047p_hal_spi.c
         Core/Src/callbacks.c
         Core/Src/can.c
+        Core/Src/comm.c
         Core/Src/controls.c
         Core/Src/pid.c
         Core/Src/run.c

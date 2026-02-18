@@ -6,6 +6,7 @@
 
 /** Includes. *****************************************************************/
 
+#include "comm.h"
 #include "stm32l4xx_hal.h"
 #include "tmc2209_runner.h"
 
@@ -15,4 +16,10 @@
 
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
   HAL_TIM_OC_DelayElapsedCallback_tmc2209(htim);
+}
+
+/** UART. */
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+  HAL_UART_RxCpltCallback_comm(huart);
 }
