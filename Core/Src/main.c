@@ -22,6 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "comm.h"
 #include "controls.h"
 #include "run.h"
 /* USER CODE END Includes */
@@ -56,6 +57,8 @@ DMA_HandleTypeDef hdma_tim1_ch1;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart1_rx;
+DMA_HandleTypeDef hdma_usart1_tx;
 
 /* Definitions for controlTask */
 osThreadId_t controlTaskHandle;
@@ -190,8 +193,9 @@ int main(void)
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
 
-  // Set mutexes used for controls.
+  // Set mutex handlers.
   controls_set_mutexes(controlsSetpointMutexHandle, sensorsMutexHandle);
+
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
@@ -208,6 +212,10 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
+
+  // Set queue handlers.
+  comm_uart_set_queue(commQueueHandle);
+
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -225,6 +233,10 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
+
+  // Set task handlers.
+  comm_uart_set_task_handle(telemetryTaskHandle);
+
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -681,6 +693,12 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
+  /* DMA1_Channel4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
+  /* DMA1_Channel5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
 
 }
 
@@ -777,6 +795,7 @@ void StartTelemetryTask(void *argument)
   /* USER CODE BEGIN StartTelemetryTask */
   /* Infinite loop */
   for (;;) {
+    comm_handle_line();
     osDelay(20);
   }
   /* USER CODE END StartTelemetryTask */
