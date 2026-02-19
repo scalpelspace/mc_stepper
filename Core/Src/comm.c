@@ -17,13 +17,8 @@
 #include <stdio.h>
 #include <string.h>
 
-/** Definitions. **************************************************************/
-
-#define COMM_LINE_MAX 96
-
 /** Private variables. ********************************************************/
 
-static TaskHandle_t s_comm_task_handle = NULL;
 static osMessageQueueId_t s_comm_queue = NULL;
 
 static char comm_line[COMM_LINE_MAX];
@@ -33,7 +28,7 @@ static uint8_t comm_rx_byte;
 /** Private functions. ********************************************************/
 
 int _write(int file, char *ptr, int len) {
-  HAL_UART_Transmit(&COMM_HUART, (uint8_t *)ptr, len, HAL_MAX_DELAY);
+  HAL_UART_Transmit(&COMM_HUART, (uint8_t *)ptr, len, 20);
   return len;
 }
 
@@ -56,13 +51,16 @@ void HAL_UART_RxCpltCallback_comm(UART_HandleTypeDef *huart) {
         comm_line_len = COMM_LINE_MAX - 1;
       comm_line[comm_line_len] = '\0';
 
-      // FreeRTOS handler.
-      BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-      vTaskNotifyGiveFromISR(s_comm_task_handle, &xHigherPriorityTaskWoken);
-      portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+      // Copy into queue message.
+      comm_line_message_t msg;
+      memcpy(msg.line, comm_line, COMM_LINE_MAX);
 
-      // Reset buffer.
+      // Reset for next line.
       comm_line_len = 0;
+
+      if (s_comm_queue != NULL) {
+        osMessageQueuePut(s_comm_queue, &msg, 0U, 0U);
+      }
       return;
     }
 
@@ -78,10 +76,6 @@ void HAL_UART_RxCpltCallback_comm(UART_HandleTypeDef *huart) {
 
 /** Public functions. *********************************************************/
 
-void comm_uart_set_task_handle(TaskHandle_t comm_task_handle) {
-  s_comm_task_handle = comm_task_handle;
-}
-
 void comm_uart_set_queue(osMessageQueueId_t comm_queue) {
   s_comm_queue = comm_queue;
 }
@@ -92,10 +86,7 @@ void comm_init(void) {
   HAL_UART_Receive_DMA(&COMM_HUART, &comm_rx_byte, 1);
 }
 
-void comm_handle_line(void) {
-  // Load static buffer.
-  const char *line = comm_line;
-
+void comm_handle_line(const char *line) {
   // Skip leading spaces.
   while (*line == ' ' || *line == '\t')
     line++;
