@@ -36,7 +36,8 @@ void mc_stepper_init(void) {
   ws2812b_update();
 
   // TMC2209.
-  const tmc2209_configuration_t default_config = {true, 16, 4, 12, 8, 20000.0f};
+  const tmc2209_configuration_t default_config = {true, 16, 500,     4,
+                                                  12,   8,  20000.0f};
   tmc2209_init(default_config);
 
   // Sensors.
