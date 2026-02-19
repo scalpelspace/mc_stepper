@@ -172,7 +172,7 @@ Default configuration:
 ## 5 FreeRTOS
 
 FreeRTOS (`CMSIS_V2`) is utilized for scheduling. SysTick is utilized for
-FreeRTOS timing, `TIM16` is used as the HAL SYS Timebase Source.
+FreeRTOS timing, `TIM7` is used as the HAL SYS Timebase Source.
 
 ---
 
