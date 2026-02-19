@@ -179,6 +179,9 @@ int main(void)
   MX_DAC1_Init();
   /* USER CODE BEGIN 2 */
 
+  // Initialization code.
+  mc_stepper_init();
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -208,7 +211,7 @@ int main(void)
 
   /* Create the queue(s) */
   /* creation of commQueue */
-  commQueueHandle = osMessageQueueNew (384, sizeof(char), &commQueue_attributes);
+  commQueueHandle = osMessageQueueNew (4, sizeof(comm_line_message_t), &commQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -237,10 +240,6 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
-
-  // Initialization code.
-  mc_stepper_init();
-
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
@@ -826,7 +825,7 @@ void StartSafetyTask(void *argument)
 
 /**
   * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM16 interrupt took place, inside
+  * @note   This function is called  when TIM7 interrupt took place, inside
   * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
   * a global variable "uwTick" used as application time base.
   * @param  htim : TIM handle
@@ -837,7 +836,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 0 */
 
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM16)
+  if (htim->Instance == TIM7)
   {
     HAL_IncTick();
   }
