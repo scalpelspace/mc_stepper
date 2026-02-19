@@ -10,6 +10,7 @@
 #include "abi_encoder_hal_tim.h"
 #include "as5047p_hal_spi.h"
 #include "can.h"
+#include "comm.h"
 #include "configuration.h"
 #include "controls.h"
 #include "tmc2209_runner.h"
@@ -25,6 +26,9 @@ static abi_encoder_t abi_encoder = {0};
 void mc_stepper_init(void) {
   // Low level peripherals.
   can_init();
+
+  // UART debug/developer interface.
+  comm_init();
 
   // On-board miscellaneous components.
   ws2812b_init();

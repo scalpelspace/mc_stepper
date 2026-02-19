@@ -16,7 +16,17 @@
 #include "FreeRTOS.h"
 #include "cmsis_os2.h"
 #include "stm32l4xx_hal.h"
-#include "task.h"
+
+/** Definitions. **************************************************************/
+
+#define COMM_LINE_MAX 96
+#define COMM_RTOS_QUEUE_DEPTH 4
+
+/** Public types. *************************************************************/
+
+typedef struct {
+  char line[COMM_LINE_MAX];
+} comm_line_message_t;
 
 /** STM32 port and pin configs. ***********************************************/
 
@@ -31,10 +41,9 @@ void HAL_UART_RxCpltCallback_comm(UART_HandleTypeDef *huart);
 
 /** Public functions. *********************************************************/
 
-void comm_uart_set_task_handle(TaskHandle_t commTaskHandle);
 void comm_uart_set_queue(osMessageQueueId_t comm_queue);
 
 void comm_init(void);
-void comm_handle_line(void);
+void comm_handle_line(const char *line);
 
 #endif

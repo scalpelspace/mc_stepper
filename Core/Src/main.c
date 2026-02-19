@@ -178,8 +178,7 @@ int main(void)
   MX_TIM1_Init();
   MX_DAC1_Init();
   /* USER CODE BEGIN 2 */
-  mc_stepper_init();
-  comm_init();
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -234,14 +233,14 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-
-  // Set task handlers.
-  comm_uart_set_task_handle(telemetryTaskHandle);
-
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
+
+  // Initialization code.
+  mc_stepper_init();
+
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
@@ -796,7 +795,13 @@ void StartTelemetryTask(void *argument)
   /* USER CODE BEGIN StartTelemetryTask */
   /* Infinite loop */
   for (;;) {
-    comm_handle_line();
+
+    // Block until a line arrives.
+    comm_line_message_t msg;
+    if (osMessageQueueGet(commQueueHandle, &msg, NULL, osWaitForever) == osOK) {
+      comm_handle_line(msg.line);
+    }
+
     osDelay(20);
   }
   /* USER CODE END StartTelemetryTask */
