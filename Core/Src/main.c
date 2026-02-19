@@ -179,6 +179,7 @@ int main(void)
   MX_DAC1_Init();
   /* USER CODE BEGIN 2 */
   mc_stepper_init();
+  comm_init();
   /* USER CODE END 2 */
 
   /* Init scheduler */
