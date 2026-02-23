@@ -12,10 +12,12 @@
 
 #include "comm.h"
 #include "configuration.h"
+#include "tmc2209_runner.h"
 #include "ws2812b_hal_pwm.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <tmc2209_hal_uart.h>
 
 /** Private variables. ********************************************************/
 
@@ -121,6 +123,28 @@ void comm_handle_line(const char *line) {
       }
     } else {
       printf("Error: expected `rgb <R>, <G>, <B>`\r\n");
+    }
+  }
+
+  else if (strncmp(line, "sr", 1) == 0) {
+    int step_rate;
+    const char *p = line + 2;
+    while (*p == ' ' || *p == '\t') {
+      p++;
+    }
+    if (sscanf(p, "%d", &step_rate) == 1) {
+      if (step_rate >= -65535 && step_rate <= 65535) {
+        if (step_rate >= 0) {
+          tmc2209_step_direction(true);
+        } else {
+          tmc2209_step_direction(false);
+        }
+        tmc2209_step_set_freq_hz((uint16_t)step_rate);
+      } else {
+        printf("Error: Step rate must be [-65535,65535]\r\n");
+      }
+    } else {
+      printf("Error: expected `sr <step_rate>`\r\n");
     }
   }
 
