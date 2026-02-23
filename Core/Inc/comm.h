@@ -41,6 +41,7 @@ void HAL_UART_RxCpltCallback_comm(UART_HandleTypeDef *huart);
 
 /** Public functions. *********************************************************/
 
+void printf_set_mutexes(osMutexId_t printf_mutex);
 void comm_uart_set_queue(osMessageQueueId_t comm_queue);
 
 void comm_init(void);
