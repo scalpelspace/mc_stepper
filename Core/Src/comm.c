@@ -19,6 +19,7 @@
 
 /** Private variables. ********************************************************/
 
+static osMutexId_t s_printf_mutex = NULL;
 static osMessageQueueId_t s_comm_queue = NULL;
 
 static char comm_line[COMM_LINE_MAX];
@@ -28,7 +29,9 @@ static uint8_t comm_rx_byte;
 /** Private functions. ********************************************************/
 
 int _write(int file, char *ptr, int len) {
+  osMutexAcquire(s_printf_mutex, osWaitForever);
   HAL_UART_Transmit(&COMM_HUART, (uint8_t *)ptr, len, 20);
+  osMutexRelease(s_printf_mutex);
   return len;
 }
 
@@ -75,6 +78,10 @@ void HAL_UART_RxCpltCallback_comm(UART_HandleTypeDef *huart) {
 }
 
 /** Public functions. *********************************************************/
+
+void printf_set_mutexes(osMutexId_t printf_mutex) {
+  s_printf_mutex = printf_mutex;
+}
 
 void comm_uart_set_queue(osMessageQueueId_t comm_queue) {
   s_comm_queue = comm_queue;

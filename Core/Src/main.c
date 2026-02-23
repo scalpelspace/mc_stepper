@@ -109,6 +109,14 @@ const osMutexAttr_t sensorsMutex_attributes = {
   .cb_mem = &sensorsMutexControlBlock,
   .cb_size = sizeof(sensorsMutexControlBlock),
 };
+/* Definitions for printfMutex */
+osMutexId_t printfMutexHandle;
+osStaticMutexDef_t printfMutexControlBlock;
+const osMutexAttr_t printfMutex_attributes = {
+  .name = "printfMutex",
+  .cb_mem = &printfMutexControlBlock,
+  .cb_size = sizeof(printfMutexControlBlock),
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -193,11 +201,15 @@ int main(void)
   /* creation of sensorsMutex */
   sensorsMutexHandle = osMutexNew(&sensorsMutex_attributes);
 
+  /* creation of printfMutex */
+  printfMutexHandle = osMutexNew(&printfMutex_attributes);
+
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
 
   // Set mutex handlers.
   controls_set_mutexes(controlsSetpointMutexHandle, sensorsMutexHandle);
+  printf_set_mutexes(printfMutexHandle);
 
   /* USER CODE END RTOS_MUTEX */
 
