@@ -16,7 +16,7 @@
 /** Definitions. **************************************************************/
 
 // Timing.
-#define CONTROLS_PERIOD_MS (1U)
+#define CONTROLS_PERIOD_MS (1u)
 #define CONTROLS_PERIOD_S ((float)CONTROLS_PERIOD_MS / 1000.0f)
 
 // Max allowed step-rate acceleration (steps/s^2).
@@ -29,9 +29,9 @@
 #define POSITION_TOLERANCE_EXIT_RAD (0.010f)   // Hysteresis.
 #define VELOCITY_TOLERANCE_ENTER_RAD_S (0.05f) // ~2.9 deg/s.
 #define VELOCITY_TOLERANCE_EXIT_RAD_S (0.10f)  // Hysteresis.
-#define ON_TARGET_DWELL_MS (50U)
+#define ON_TARGET_DWELL_MS (50u)
 #define ON_TARGET_DWELL_TICKS                                                  \
-  ((ON_TARGET_DWELL_MS + CONTROLS_PERIOD_MS - 1U) / CONTROLS_PERIOD_MS)
+  ((ON_TARGET_DWELL_MS + CONTROLS_PERIOD_MS - 1u) / CONTROLS_PERIOD_MS)
 
 /** Public types. *************************************************************/
 
