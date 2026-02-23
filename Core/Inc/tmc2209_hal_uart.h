@@ -48,6 +48,8 @@ HAL_StatusTypeDef tmc2209_set_microsteps(uint16_t microsteps);
 HAL_StatusTypeDef tmc2209_set_ihold_irun(uint8_t ihold, uint8_t irun,
                                          uint8_t iholddelay);
 
+HAL_StatusTypeDef tmc2209_set_tpowerdown(uint8_t tpowerdown);
+
 HAL_StatusTypeDef tmc2209_set_current_sense(bool use_internal_rsense,
                                             bool vsense_low_018v);
 

@@ -199,6 +199,11 @@ HAL_StatusTypeDef tmc2209_set_ihold_irun(const uint8_t ihold,
   return tmc2209_write_reg(TMC2209_REG_IHOLD_IRUN, v);
 }
 
+HAL_StatusTypeDef tmc2209_set_tpowerdown(const uint8_t tpowerdown) {
+  const uint32_t v = tpowerdown & 0xFFu;
+  return tmc2209_write_reg(TMC2209_REG_TPOWERDOWN, v);
+}
+
 HAL_StatusTypeDef tmc2209_set_current_sense(const bool use_internal_rsense,
                                             const bool vsense_low_018v) {
   uint32_t gconf = 0;
