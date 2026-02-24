@@ -16,6 +16,7 @@
 #include "ws2812b_hal_pwm.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <tmc2209_hal_uart.h>
 
@@ -127,19 +128,16 @@ void comm_handle_line(const char *line) {
   }
 
   else if (strncmp(line, "sr", 1) == 0) {
-    int step_rate;
-    const char *p = line + 2;
-    while (*p == ' ' || *p == '\t') {
-      p++;
-    }
-    if (sscanf(p, "%d", &step_rate) == 1) {
+    int step_rate = 0;
+    if (sscanf(line + 2, "%d", &step_rate) == 1) {
       if (step_rate >= -65535 && step_rate <= 65535) {
-        if (step_rate >= 0) {
+        if (step_rate >= 0) { // Check sign for direction.
           tmc2209_step_direction(true);
         } else {
           tmc2209_step_direction(false);
         }
-        tmc2209_step_set_freq_hz((uint16_t)step_rate);
+        const uint16_t step_rate_abs = (uint16_t)abs(step_rate);
+        tmc2209_step_set_freq_hz(step_rate_abs);
       } else {
         printf("Error: Step rate must be [-65535,65535]\r\n");
       }
