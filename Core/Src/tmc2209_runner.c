@@ -124,6 +124,9 @@ HAL_StatusTypeDef tmc2209_step_set_freq_hz(const uint32_t f_step_hz) {
     __disable_irq();
     g_dt_ticks = 0;
     __enable_irq();
+    // Stop the channel interrupt generation first.
+    __HAL_TIM_DISABLE_IT(&TMC2209_HTIM, TIM_IT_CC1);   // Adjust CCx.
+    __HAL_TIM_CLEAR_FLAG(&TMC2209_HTIM, TIM_FLAG_CC1); // Adjust CCx flag.
     return HAL_TIM_OC_Stop_IT(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL);
   }
 
@@ -135,12 +138,18 @@ HAL_StatusTypeDef tmc2209_step_set_freq_hz(const uint32_t f_step_hz) {
 
   __disable_irq();
   g_dt_ticks = (uint16_t)dt;
-  const uint16_t now = (uint16_t)__HAL_TIM_GET_COUNTER(&TMC2209_HTIM);
+
+  // Resync next compare from "now".
+  uint16_t now = (uint16_t)__HAL_TIM_GET_COUNTER(&TMC2209_HTIM);
   __HAL_TIM_SET_COMPARE(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL,
                         (uint16_t)(now + g_dt_ticks));
+
+  // Clear any stale pending CC flag before enabling.
+  __HAL_TIM_CLEAR_FLAG(&TMC2209_HTIM, TIM_FLAG_CC1); // Adjust flag.
   __enable_irq();
 
-  return HAL_OK;
+  // Ensure running.
+  return HAL_TIM_OC_Start_IT(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL);
 }
 
 HAL_StatusTypeDef tmc2209_step_direction(const bool forward) {
