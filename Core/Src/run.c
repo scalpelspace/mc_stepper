@@ -52,3 +52,8 @@ void mc_stepper_init(void) {
   // Closed-loop controls.
   controls_init();
 }
+
+void sensors_run(void) {
+  // Absolute angle sensor.
+  as5047p_get_angle();
+}

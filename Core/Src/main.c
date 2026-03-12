@@ -789,6 +789,7 @@ void StartSensorTask(void *argument)
   /* USER CODE BEGIN StartSensorTask */
   /* Infinite loop */
   for (;;) {
+    sensors_run();
     osDelay(1);
   }
   /* USER CODE END StartSensorTask */
