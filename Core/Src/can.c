@@ -77,6 +77,44 @@ void process_can_message(CAN_RxHeaderTypeDef *header, uint8_t *data) {
   }
 }
 
+void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
+  const control_mode_t control_mode =
+      (control_mode_t)decode_signal(&msg->signals[1], data);
+  const bool enable = (bool)decode_signal(&msg->signals[2], data);
+  const bool clear_faults = (bool)decode_signal(&msg->signals[3], data);
+  // &msg->signals[4] is reserved0.
+  const float target_position = (float)decode_signal(&msg->signals[5], data);
+  const float target_velocity = (float)decode_signal(&msg->signals[6], data);
+
+  // TODO(Daniel): Implement controls/re-init calls.
+
+  // Update enable/disable function.
+  if (enable) {
+    tmc2209_enable();
+  } else {
+    tmc2209_disable();
+  }
+}
+
+void can_rx_command_stepper_current(can_header_t *header, uint8_t *data) {
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
+  const uint8_t update_current = (uint8_t)decode_signal(&msg->signals[1], data);
+  const uint8_t persist = (uint8_t)decode_signal(&msg->signals[2], data);
+  // &msg->signals[3] is reserved0.
+  const uint8_t run_ma = (uint8_t)decode_signal(&msg->signals[4], data);
+  const uint8_t hold_ma = (uint8_t)decode_signal(&msg->signals[5], data);
+  const uint8_t hold_delay = (uint8_t)decode_signal(&msg->signals[6], data);
+
+  // TODO(Daniel): Implement controls/re-init calls.
+}
+
 void can_rx_datetime_set(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_SET];
@@ -191,6 +229,10 @@ void can_db_init(void) {
          MC_STEPPER_CAN_DBC_IDX_COUNT * sizeof(dbc_messages[0]));
 
   // Custom overrides.
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER].rx_handler =
+      (can_rx_handler_t)can_rx_command_stepper;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_CURRENT].rx_handler =
+      (can_rx_handler_t)can_rx_command_stepper_current;
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_SET].rx_handler =
       (can_rx_handler_t)can_rx_datetime_set;
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_GET].rx_handler =
