@@ -8,8 +8,12 @@
 
 #include "can.h"
 #include "configuration.h"
+#include "controls.h"
 #include "rtc.h"
+#include "tmc2209_runner.h"
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /** Private variables. ********************************************************/
@@ -73,6 +77,54 @@ void process_can_message(CAN_RxHeaderTypeDef *header, uint8_t *data) {
   }
 }
 
+void can_rx_datetime_set(can_header_t *header, uint8_t *data) {
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_SET];
+
+  const uint8_t year = (uint8_t)decode_signal(&msg->signals[0], data);
+  const uint8_t month = (uint8_t)decode_signal(&msg->signals[1], data);
+  const uint8_t date = (uint8_t)decode_signal(&msg->signals[2], data);
+  const uint8_t weekday = (uint8_t)decode_signal(&msg->signals[3], data);
+  const uint8_t hours = (uint8_t)decode_signal(&msg->signals[4], data);
+  const uint8_t minutes = (uint8_t)decode_signal(&msg->signals[5], data);
+  const uint8_t seconds = (uint8_t)decode_signal(&msg->signals[6], data);
+
+  set_date(year, month, date, weekday);
+  set_time(hours, minutes, seconds);
+}
+
+void can_rx_datetime_get(can_header_t *header, uint8_t *data) {
+  RTC_DateTypeDef sDate = {0};
+  RTC_TimeTypeDef sTime = {0};
+
+  // NOTE: Time must be read before date on STM32 HAL to unlock the shadow
+  // registers correctly — reading date first can latch stale values.
+  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+  HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_GET_RESPONSE];
+  const uint32_t values[] = {
+      sDate.Year,  sDate.Month,   sDate.Date,    sDate.WeekDay,
+      sTime.Hours, sTime.Minutes, sTime.Seconds,
+  };
+
+  can_send_message_raw32(&HCAN, msg, values);
+}
+
+void can_rx_version_get(can_header_t *header, uint8_t *data) {
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_VERSION_GET_RESPONSE];
+  const uint32_t values[] = {
+      MC_STEPPER_VERSION_MAJOR,
+      MC_STEPPER_VERSION_MINOR,
+      MC_STEPPER_VERSION_PATCH,
+      MC_STEPPER_VERSION_IDENTIFIER,
+  };
+
+  can_send_message_raw32(&HCAN, msg, values);
+}
+
 /** User implementations into STM32 HAL (overwrite weak HAL functions). *******/
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
@@ -131,54 +183,6 @@ void can_init(void) {
   // Setup CAN general members on the transmit header.
   tx_header.IDE = CAN_ID_STD;
   // Remaining members (DLC and StdId) are configured per message on transmit.
-}
-
-void can_rx_datetime_set(can_header_t *header, uint8_t *data) {
-  const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_SET];
-
-  const uint8_t year = (uint8_t)decode_signal(&msg->signals[0], data);
-  const uint8_t month = (uint8_t)decode_signal(&msg->signals[1], data);
-  const uint8_t date = (uint8_t)decode_signal(&msg->signals[2], data);
-  const uint8_t weekday = (uint8_t)decode_signal(&msg->signals[3], data);
-  const uint8_t hours = (uint8_t)decode_signal(&msg->signals[4], data);
-  const uint8_t minutes = (uint8_t)decode_signal(&msg->signals[5], data);
-  const uint8_t seconds = (uint8_t)decode_signal(&msg->signals[6], data);
-
-  set_date(year, month, date, weekday);
-  set_time(hours, minutes, seconds);
-}
-
-void can_rx_datetime_get(can_header_t *header, uint8_t *data) {
-  RTC_DateTypeDef sDate = {0};
-  RTC_TimeTypeDef sTime = {0};
-
-  // NOTE: Time must be read before date on STM32 HAL to unlock the shadow
-  // registers correctly — reading date first can latch stale values.
-  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-  HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-
-  const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_GET_RESPONSE];
-  const uint32_t values[] = {
-      sDate.Year,  sDate.Month,   sDate.Date,    sDate.WeekDay,
-      sTime.Hours, sTime.Minutes, sTime.Seconds,
-  };
-
-  can_send_message_raw32(&HCAN, msg, values);
-}
-
-void can_rx_version_get(can_header_t *header, uint8_t *data) {
-  const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_VERSION_GET_RESPONSE];
-  const uint32_t values[] = {
-      MC_STEPPER_VERSION_MAJOR,
-      MC_STEPPER_VERSION_MINOR,
-      MC_STEPPER_VERSION_PATCH,
-      MC_STEPPER_VERSION_IDENTIFIER,
-  };
-
-  can_send_message_raw32(&HCAN, msg, values);
 }
 
 void can_db_init(void) {
