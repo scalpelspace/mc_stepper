@@ -38,6 +38,7 @@
 /** Public variables. *********************************************************/
 
 float as5047p_angle_deg = 0;
+uint16_t as5047p_angle_step = 0;
 
 /** Private functions. ********************************************************/
 
@@ -222,11 +223,11 @@ uint16_t as5047p_get_error_status(void) {
 }
 
 void as5047p_get_angle(void) {
-  uint16_t raw_position;
-  const int8_t as5047p_error = as5047p_get_position(&raw_position);
+  // Update raw angle step count.
+  const int8_t as5047p_error = as5047p_get_position(&as5047p_angle_step);
   if (as5047p_error == 0) {
     // Angle (degrees) = value * (360 / 2^14).
-    as5047p_angle_deg = (float)(raw_position * (360.0 / 0x4000));
+    as5047p_angle_deg = (float)(as5047p_angle_step * (360.0 / 0x4000));
   }
 }
 
