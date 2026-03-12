@@ -81,22 +81,85 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER];
 
-  const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
+  const can_node_id_t node_id =
+      (can_node_id_t)decode_signal(&msg->signals[0], data);
   const control_mode_t control_mode =
       (control_mode_t)decode_signal(&msg->signals[1], data);
   const bool enable = (bool)decode_signal(&msg->signals[2], data);
   const bool clear_faults = (bool)decode_signal(&msg->signals[3], data);
   // &msg->signals[4] is reserved0.
-  const float target_position = (float)decode_signal(&msg->signals[5], data);
-  const float target_velocity = (float)decode_signal(&msg->signals[6], data);
+  const float target_position_rad =
+      (float)decode_signal(&msg->signals[5], data);
+  const float target_velocity_rad_s =
+      (float)decode_signal(&msg->signals[6], data);
 
-  // TODO(Daniel): Implement controls/re-init calls.
+  // Node ID filter, reject messages not explicitly referencing this node.
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
+    return;
+  }
 
-  // Update enable/disable function.
+  // Fault clear: must be processed before any enable/setpoint logic so that a
+  // single frame can atomically clear and re-enable.
+  if (clear_faults && controls_state == CONTROLS_FAULT) {
+    controls_state = CONTROLS_IDLE;
+  }
+
+  // Enable/disable gate. Disabling suppresses the setpoint update below, a
+  // disabled motor should not silently accept a new target.
   if (enable) {
     tmc2209_enable();
+    // Bring the state machine out of DISABLE so it can accept setpoints.
+    if (controls_state == CONTROLS_DISABLE) {
+      controls_state = CONTROLS_IDLE;
+    }
   } else {
     tmc2209_disable();
+    // Park the state machine so the control loop stops commanding steps.
+    controls_state = CONTROLS_DISABLE;
+    return; // No setpoint update when disabled.
+  }
+
+  // Setpoint dispatch. Only send a setpoint when the state machine is live
+  // (IDLE, EXECUTING, or ON_POSITION_TARGET). Skip FAULT, caller must send
+  // clear_faults first to recover, then send a new setpoint in a follow-up
+  // frame or a combined frame (clear_faults=1 + valid mode in same message).
+  if (controls_state == CONTROLS_FAULT) {
+    return;
+  }
+
+  switch (control_mode) {
+  case CONTROL_MODE_POSITION: {
+    const mc_stepper_command_t cmd = {
+        .mode = CONTROL_MODE_POSITION,
+        .setpoint = target_position_rad,
+    };
+    controls_set_setpoint(cmd);
+    break;
+  }
+
+  case CONTROL_MODE_SPEED: {
+    const mc_stepper_command_t cmd = {
+        .mode = CONTROL_MODE_SPEED,
+        .setpoint = target_velocity_rad_s,
+    };
+    controls_set_setpoint(cmd);
+    break;
+  }
+
+  case CONTROL_MODE_NONE: {
+    // Explicit stop: command zero velocity so the control loop decelerates
+    // cleanly via the slew filter, rather than cutting steps abruptly.
+    const mc_stepper_command_t cmd = {
+        .mode = CONTROL_MODE_SPEED,
+        .setpoint = 0.0f,
+    };
+    controls_set_setpoint(cmd);
+    break;
+  }
+
+  default:
+    // Unknown mode - ignore to avoid driving the motor unexpectedly.
+    break;
   }
 }
 
@@ -136,7 +199,7 @@ void can_rx_datetime_get(can_header_t *header, uint8_t *data) {
   RTC_TimeTypeDef sTime = {0};
 
   // NOTE: Time must be read before date on STM32 HAL to unlock the shadow
-  // registers correctly — reading date first can latch stale values.
+  // registers correctly - reading date first can latch stale values.
   HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
   HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
 
