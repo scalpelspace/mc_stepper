@@ -102,7 +102,7 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
 
 void can_rx_command_stepper_current(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER];
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_CURRENT];
 
   const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
   const uint8_t update_current = (uint8_t)decode_signal(&msg->signals[1], data);
