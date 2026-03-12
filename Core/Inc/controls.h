@@ -72,8 +72,22 @@ void controls_set_mutexes(osMutexId_t setpoint_mutex,
                           osMutexId_t sensors_mutex);
 
 void controls_init(void);
+
 bool controls_set_microsteps(uint16_t microsteps);
+
+/**
+ * @brief Set the step-rate acceleration limit at runtime.
+ *
+ * Converts a motor-shaft acceleration (rad/s^2) to the internal steps/s^2
+ * limit used by the slew-rate filter. Call after controls_init() and
+ * whenever microstep configuration changes.
+ *
+ * @param accel_rad_s2  Desired acceleration limit in rad/s^2.
+ */
+void controls_set_accel_rad_s2(float accel_rad_s2);
+
 void controls_set_setpoint(mc_stepper_command_t command);
+
 void controls_state_machine(void);
 
 #endif
