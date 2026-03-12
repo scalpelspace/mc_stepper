@@ -13,4 +13,6 @@
 
 void mc_stepper_init(void);
 
+void sensors_run(void);
+
 #endif
