@@ -9,6 +9,7 @@
 
 /** Includes. *****************************************************************/
 
+#include "can_driver/can_id_allocatee.h"
 #include "mc_stepper_driver.h"
 #include "stm32l4xx_hal.h"
 #include "stm32l4xx_hal_can.h"
@@ -17,12 +18,27 @@
 
 extern CAN_HandleTypeDef hcan1;
 
+// CAN.
+#define HCAN hcan1
+
+/** Public variables. *********************************************************/
+
+// Mutable runtime copy.
+extern can_message_t mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COUNT];
+
+extern can_node_id_t can_node_id;
+
 /** Public functions. *********************************************************/
 
 /**
  * @brief Initialize CAN.
  */
 void can_init(void);
+
+/**
+ * @brief Initialize CAN DBC.
+ */
+void can_db_init(void);
 
 /**
  * @brief Send uint32_t data CAN message on h_can_x with can_message_t
@@ -55,5 +71,24 @@ void can_init(void);
 HAL_StatusTypeDef can_send_message_raw32(CAN_HandleTypeDef *h_can_x,
                                          const can_message_t *msg,
                                          const uint32_t signal_values[]);
+
+/**
+ * @brief General CAN transmit function for CAN ID implementation.
+ *
+ * @param msg
+ * @param data
+ *
+ * @return CAN bus message transmit status.
+ * @retval true -> HAL_OK response.
+ * @retval false -> non HAL_OK response.
+ */
+bool can_tx_direct(const can_message_t *msg, const uint8_t data[8]);
+
+/**
+ * @brief General node ID completion callback for CAN ID implementation.
+ *
+ * @param node_id
+ */
+void allocatee_complete(can_node_id_t node_id);
 
 #endif
