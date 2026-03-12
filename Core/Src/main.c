@@ -840,7 +840,7 @@ void StartControlTask(void *argument)
   uint32_t last = osKernelGetTickCount();
   /* Infinite loop */
   for (;;) {
-    controls_state_machine();
+    controls_run();
     osDelayUntil(last += CONTROLS_PERIOD_MS);
   }
   /* USER CODE END 5 */
@@ -858,7 +858,6 @@ void StartSensorTask(void *argument)
   /* USER CODE BEGIN StartSensorTask */
   /* Infinite loop */
   for (;;) {
-    sensors_run();
     osDelay(1);
   }
   /* USER CODE END StartSensorTask */

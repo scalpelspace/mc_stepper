@@ -39,6 +39,10 @@ static uint16_t full_steps_per_rev = 200;
 static uint16_t microstep_config = 16;
 static float steps_per_rad;
 
+// Runtime acceleration limit (steps/s^2). Defaults to the compile-time value.
+// Overridden via controls_set_accel_rad_s2() once steps_per_rad is known.
+static float s_max_step_accel = MAX_STEP_ACCEL_STEPS_S2;
+
 static uint16_t on_target_ticks = 0;   // Position on-target latch count.
 static bool latched_on_target = false; // Position on-target latching check.
 
@@ -79,7 +83,7 @@ static float clampf(const float x, const float lo, const float hi) {
  */
 static float step_rate_slew_limit(const float target) {
   const float max_delta =
-      MAX_STEP_ACCEL_STEPS_S2 * CONTROLS_PERIOD_S; // steps/s per tick.
+      s_max_step_accel * CONTROLS_PERIOD_S; // steps/s per tick.
   const float delta =
       clampf(target - step_rate_command, -max_delta, +max_delta);
   return step_rate_command + delta;
@@ -154,6 +158,12 @@ void controls_set_mutexes(osMutexId_t setpoint_mutex,
                           osMutexId_t sensors_mutex) {
   s_setpoint_mutex = setpoint_mutex;
   s_sensors_mutex = sensors_mutex;
+}
+
+void controls_set_accel_rad_s2(const float accel_rad_s2) {
+  // Convert rad/s^2 to steps/s^2 using the current steps_per_rad calibration.
+  // steps_per_rad is valid after controls_init() or controls_set_microsteps().
+  s_max_step_accel = accel_rad_s2 * steps_per_rad;
 }
 
 void controls_init(void) {
@@ -270,8 +280,23 @@ void controls_state_machine(void) {
     break;
 
   case CONTROLS_ON_POSITION_TARGET:
-    // TODO: TEST! Transition condition from ON_POSITION_TARGET to IDLE.
-    controls_state = CONTROLS_IDLE;
+    if (command_snapshot(&cmd))
+      cache_command = cmd;
+    else
+      cmd = cache_command;
+
+    if (sensors_snapshot(&data))
+      cache_sensor_data = data;
+    else
+      data = cache_sensor_data;
+
+    // Keep running the loop so the driver actively holds position.
+    control_loop(cmd, data);
+
+    // If there is drift outside the exit band, resume normal execution.
+    if (!on_position_target(cmd, data)) {
+      controls_state = CONTROLS_EXECUTING;
+    }
     break;
 
   case CONTROLS_FAULT:

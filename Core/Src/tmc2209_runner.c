@@ -6,16 +6,22 @@
 /** Includes. *****************************************************************/
 
 #include "tmc2209_runner.h"
+#include "controls.h"
 #include "tmc2209_hal_uart.h"
 #include <math.h>
 
 /** Definitions. **************************************************************/
 
-#define R_SENSE_OHM (110000U)      // 110mOhm.
+#define R_SENSE_OHM (0.110f)       // 110 mOhm external sense resistor.
 #define VFS_VOLTS (0.325f)         // 0.325V (vsense=0), 0.180V (vsense=1).
 #define VREF_MAX_VOLTS (2.5f)      // Max VREF specified by datasheet 2.5V.
 #define VREF_DIVIDER_GAIN (0.752f) // 3.3k / 10k divider.
 #define DAC_MAX_VOLTS (3.3f)       // STM32 DAC max voltage.
+
+// TIM15 input clock after prescaler.
+// dt_ticks = TIM_CLOCK_HZ / (2 * f_step_hz).
+// Verify this matches CubeMX: TIM15 APB2 clock / (PSC + 1).
+#define TMC2209_TIM_CLOCK_HZ (1000000ul)
 
 /** Private variables. ********************************************************/
 
@@ -119,6 +125,12 @@ HAL_StatusTypeDef tmc2209_init(const tmc2209_configuration_t config) {
   if (result != HAL_OK)
     return result;
 
+  // Apply acceleration limit from config into the controls slew filter.
+  // controls_init() must have been called before tmc2209_init().
+  if (config.max_acceleration_rad_s2 > 0.0f) {
+    controls_set_accel_rad_s2(config.max_acceleration_rad_s2);
+  }
+
   if (config.enable) {
     // Enable.
     tmc2209_enable();
@@ -138,7 +150,7 @@ HAL_StatusTypeDef tmc2209_step_set_freq_hz(const uint32_t f_step_hz) {
     return HAL_TIM_OC_Stop_IT(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL);
   }
 
-  uint32_t dt = 1000000u / (2u * f_step_hz);
+  uint32_t dt = TMC2209_TIM_CLOCK_HZ / (2u * f_step_hz);
   if (dt < 2u)
     dt = 2u;
   if (dt > 65535u)
