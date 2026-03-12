@@ -32,6 +32,16 @@ void HAL_TIM_OC_DelayElapsedCallback_tmc2209(TIM_HandleTypeDef *htim);
 /** Public functions. *********************************************************/
 
 /**
+ * @brief Enable the TMC2209.
+ */
+void tmc2209_enable(void);
+
+/**
+ * @brief Disable the TMC2209.
+ */
+void tmc2209_disable(void);
+
+/**
  * @brief Initialize peripherals for the TMC2209.
  *
  * @param config TMC2209 configuration defined by tmc2209_configuration_t.

@@ -67,11 +67,19 @@ static uint16_t dac_counts_from_voltage(const float dac_voltage) {
 
 /** Public functions. *********************************************************/
 
+void tmc2209_enable(void) {
+  HAL_GPIO_WritePin(TMC2209_ENN_PORT, TMC2209_ENN_PIN, GPIO_PIN_RESET);
+}
+
+void tmc2209_disable(void) {
+  HAL_GPIO_WritePin(TMC2209_ENN_PORT, TMC2209_ENN_PIN, GPIO_PIN_SET);
+}
+
 HAL_StatusTypeDef tmc2209_init(const tmc2209_configuration_t config) {
   HAL_StatusTypeDef result = HAL_OK;
 
   // Disable.
-  HAL_GPIO_WritePin(TMC2209_ENN_PORT, TMC2209_ENN_PIN, GPIO_PIN_SET);
+  tmc2209_disable();
   HAL_Delay(2); // Short delay.
 
   // Clear GSTAT.
@@ -113,7 +121,7 @@ HAL_StatusTypeDef tmc2209_init(const tmc2209_configuration_t config) {
 
   if (config.enable) {
     // Enable.
-    HAL_GPIO_WritePin(TMC2209_ENN_PORT, TMC2209_ENN_PIN, GPIO_PIN_RESET);
+    tmc2209_enable();
   }
 
   return result;
