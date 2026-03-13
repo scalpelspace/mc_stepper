@@ -16,7 +16,6 @@
 #include "tmc2209_runner.h"
 #include "uid_hash48.h"
 #include "ws2812b_hal_pwm.h"
-#include <math.h>
 
 /** Private variables. ********************************************************/
 
@@ -24,7 +23,7 @@
 static abi_encoder_t abi_encoder = {0};
 
 // Encoder position tracking (multi-turn unwrapped).
-static float s_prev_as5047p_angle_deg = 0.0f;
+static float s_prev_raw_rad = 0.0f;
 static float s_pos_unwrapped_rad = 0.0f;
 static float s_prev_pos_rad = 0.0f;
 static bool s_encoder_initialized = false;
@@ -95,28 +94,31 @@ void mc_stepper_init(void) {
                                                   12,    8,  20000.0f};
   tmc2209_init(default_config);
 }
-
 void controls_run(void) {
   // Update sensor data.
   sensors_run();
 
+  // Convert angle to radians at the source.
+  // as5047p_angle_step is the raw 14-bit count (0-16383).
+  const float raw_rad =
+      (float)as5047p_angle_step * (2.0f * (float)M_PI / 16384.0f);
+
   if (!s_encoder_initialized) {
-    s_prev_as5047p_angle_deg = as5047p_angle_deg;
-    s_pos_unwrapped_rad = as5047p_angle_deg;
-    s_prev_pos_rad = as5047p_angle_deg;
+    s_prev_raw_rad = raw_rad;
+    s_pos_unwrapped_rad = raw_rad;
+    s_prev_pos_rad = raw_rad;
     s_encoder_initialized = true;
   }
 
-  // Compute the shortest-path delta and accumulate into unwrapped position.
-  // This handles both forward and reverse wrap-around at 0/2pi.
-  float delta = as5047p_angle_deg - s_prev_as5047p_angle_deg;
-  if (delta > MC_STEPPER_ANGLE_WRAP_THRESHOLD)
+  // Wrap detection threshold is half a revolution in radians.
+  float delta = -(raw_rad - s_prev_raw_rad);
+  if (delta > (float)M_PI)
     delta -= 2.0f * (float)M_PI;
-  else if (delta < -MC_STEPPER_ANGLE_WRAP_THRESHOLD)
+  if (delta < -(float)M_PI)
     delta += 2.0f * (float)M_PI;
 
   s_pos_unwrapped_rad += delta;
-  s_prev_as5047p_angle_deg = as5047p_angle_deg;
+  s_prev_raw_rad = raw_rad;
 
   // Backward-difference velocity estimate. At 1 ms this is low-noise for a
   // 14-bit encoder; the position PD derivative filter handles residual noise.
