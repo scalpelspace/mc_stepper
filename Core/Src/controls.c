@@ -185,14 +185,14 @@ void controls_init(void) {
 
   // Velocity.
   pid_init(&velocity_pi);
-  velocity_pi.k_p = 0.5f;
-  velocity_pi.k_i = 50.0f;
+  velocity_pi.k_p = 0.3f;
+  velocity_pi.k_i = 3.0f;
   velocity_pi.k_d = 0.0f;
   velocity_pi.tau = 0.0f;
   velocity_pi.output_min = -5000.0f;
   velocity_pi.output_max = 5000.0f;
-  velocity_pi.integral_min = -5000.0f;
-  velocity_pi.integral_max = 5000.0f;
+  velocity_pi.integral_min = -500.0f;
+  velocity_pi.integral_max = 500.0f;
   velocity_pi.T = CONTROLS_PERIOD_S;
 
   // Reset position on target tick counter and latch variable.

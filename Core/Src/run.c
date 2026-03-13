@@ -94,6 +94,7 @@ void mc_stepper_init(void) {
                                                   12,    8,  20000.0f};
   tmc2209_init(default_config);
 }
+
 void controls_run(void) {
   // Update sensor data.
   sensors_run();
