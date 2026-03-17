@@ -22,6 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "can_driver/can_id_allocatee.h"
 #include "comm.h"
 #include "controls.h"
 #include "run.h"
@@ -899,6 +900,7 @@ void StartSafetyTask(void *argument)
   /* USER CODE BEGIN StartSafetyTask */
   /* Infinite loop */
   for (;;) {
+    can_id_allocatee_state_machine(); // TODO(Daniel): Improve implementation.
     osDelay(5);
   }
   /* USER CODE END StartSafetyTask */
