@@ -53,6 +53,7 @@ typedef enum {
   CONTROL_MODE_NONE = 0,
   CONTROL_MODE_POSITION = 1,
   CONTROL_MODE_SPEED = 2,
+  CONTROL_MODE_POSITION_RELATIVE = 3,
 } control_mode_t;
 
 typedef struct {

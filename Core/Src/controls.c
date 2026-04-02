@@ -241,6 +241,19 @@ void controls_state_machine(void) {
 
   case CONTROLS_START:
     if (command_snapshot(&cmd)) {
+
+      // Relative position control.
+      if (cmd.mode == CONTROL_MODE_POSITION_RELATIVE) {
+        // Resolve a relative position command to an absolute target using the
+        // current measured position. This happens exactly once, so the resolved
+        // absolute target is what gets stored in cache_command and used for the
+        // remainder of the move and only the remainder of the move.
+        controls_sensors_t snap = {0};
+        sensors_snapshot(&snap);
+        cmd.setpoint += snap.position_rad; // offset -> absolute rad.
+        cmd.mode = CONTROL_MODE_POSITION;  // Treat as absolute from here on.
+      }
+
       cache_command = cmd;
 
       if (cmd.mode != prev_mode) {
