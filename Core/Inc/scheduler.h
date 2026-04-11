@@ -1,5 +1,5 @@
 /*******************************************************************************
-* @file scheduler.h
+ * @file scheduler.h
  * @brief Scheduler: Manages real time scheduling via 16-bit timer peripheral.
  *******************************************************************************
  */
