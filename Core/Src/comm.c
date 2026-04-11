@@ -20,10 +20,11 @@
 #include <string.h>
 #include <tmc2209_hal_uart.h>
 
-/** Private variables. ********************************************************/
+/** Definitions. **************************************************************/
 
-static osMutexId_t s_printf_mutex = NULL;
-static osMessageQueueId_t s_comm_queue = NULL;
+#define COMM_LINE_MAX 96
+
+/** Private variables. ********************************************************/
 
 static char comm_line[COMM_LINE_MAX];
 static volatile uint16_t comm_line_len = 0;
@@ -32,71 +33,11 @@ static uint8_t comm_rx_byte;
 /** Private functions. ********************************************************/
 
 int _write(int file, char *ptr, int len) {
-  osMutexAcquire(s_printf_mutex, osWaitForever);
-  HAL_UART_Transmit(&COMM_HUART, (uint8_t *)ptr, len, 20);
-  osMutexRelease(s_printf_mutex);
+  HAL_UART_Transmit(&COMM_HUART, (uint8_t *)ptr, len, HAL_MAX_DELAY);
   return len;
 }
 
-/** User implementations into STM32 HAL (overwrite weak HAL functions). *******/
-
-void HAL_UART_RxCpltCallback_comm(UART_HandleTypeDef *huart) {
-  if (huart == &COMM_HUART) {
-    uint8_t b = comm_rx_byte;
-
-    HAL_UART_Receive_DMA(&COMM_HUART, &comm_rx_byte, 1);
-
-    // Basic line editing/framing.
-    if (b == '\r') {
-      return; // Ignore CR.
-    }
-
-    if (b == '\n') {
-      // End of line: null-terminate and handle command.
-      if (comm_line_len >= COMM_LINE_MAX)
-        comm_line_len = COMM_LINE_MAX - 1;
-      comm_line[comm_line_len] = '\0';
-
-      // Copy into queue message.
-      comm_line_message_t msg;
-      memcpy(msg.line, comm_line, COMM_LINE_MAX);
-
-      // Reset for next line.
-      comm_line_len = 0;
-
-      if (s_comm_queue != NULL) {
-        osMessageQueuePut(s_comm_queue, &msg, 0U, 0U);
-      }
-      return;
-    }
-
-    // Normal character.
-    if (comm_line_len < (COMM_LINE_MAX - 1)) {
-      comm_line[comm_line_len++] = (char)b;
-    } else {
-      // Overflow: drop line.
-      comm_line_len = 0;
-    }
-  }
-}
-
-/** Public functions. *********************************************************/
-
-void printf_set_mutexes(osMutexId_t printf_mutex) {
-  s_printf_mutex = printf_mutex;
-}
-
-void comm_uart_set_queue(osMessageQueueId_t comm_queue) {
-  s_comm_queue = comm_queue;
-}
-
-void comm_init(void) {
-  comm_line_len = 0;
-  // Initialize single byte DMA.
-  HAL_UART_Receive_DMA(&COMM_HUART, &comm_rx_byte, 1);
-}
-
-void comm_handle_line(const char *line) {
+static void comm_handle_line(const char *line) {
   // Skip leading spaces.
   while (*line == ' ' || *line == '\t')
     line++;
@@ -148,4 +89,48 @@ void comm_handle_line(const char *line) {
 
   else { // Error: unknown command.
   }
+}
+
+/** User implementations into STM32 HAL (overwrite weak HAL functions). *******/
+
+void HAL_UART_RxCpltCallback_comm(UART_HandleTypeDef *huart) {
+  if (huart == &COMM_HUART) {
+    uint8_t b = comm_rx_byte;
+
+    HAL_UART_Receive_DMA(&COMM_HUART, &comm_rx_byte, 1);
+
+    // Basic line editing/framing.
+    if (b == '\r') {
+      return; // Ignore CR.
+    }
+
+    if (b == '\n') {
+      // End of line: null-terminate and handle command.
+      if (comm_line_len >= COMM_LINE_MAX)
+        comm_line_len = COMM_LINE_MAX - 1;
+      comm_line[comm_line_len] = '\0';
+
+      comm_handle_line(comm_line);
+
+      // Reset buffer.
+      comm_line_len = 0;
+      return;
+    }
+
+    // Normal character.
+    if (comm_line_len < (COMM_LINE_MAX - 1)) {
+      comm_line[comm_line_len++] = (char)b;
+    } else {
+      // Overflow: drop line.
+      comm_line_len = 0;
+    }
+  }
+}
+
+/** Public functions. *********************************************************/
+
+void comm_init(void) {
+  comm_line_len = 0;
+  // Initialize single byte DMA.
+  HAL_UART_Receive_DMA(&COMM_HUART, &comm_rx_byte, 1);
 }

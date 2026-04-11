@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -29,7 +28,6 @@
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
-typedef StaticSemaphore_t osStaticMutexDef_t;
 /* USER CODE BEGIN PTD */
 
 /* USER CODE END PTD */
@@ -63,63 +61,6 @@ UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
 
-/* Definitions for controlTask */
-osThreadId_t controlTaskHandle;
-const osThreadAttr_t controlTask_attributes = {
-  .name = "controlTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityAboveNormal,
-};
-/* Definitions for sensorTask */
-osThreadId_t sensorTaskHandle;
-const osThreadAttr_t sensorTask_attributes = {
-  .name = "sensorTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
-};
-/* Definitions for telemetryTask */
-osThreadId_t telemetryTaskHandle;
-const osThreadAttr_t telemetryTask_attributes = {
-  .name = "telemetryTask",
-  .stack_size = 1024 * 4,
-  .priority = (osPriority_t) osPriorityLow,
-};
-/* Definitions for safetyTask */
-osThreadId_t safetyTaskHandle;
-const osThreadAttr_t safetyTask_attributes = {
-  .name = "safetyTask",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityHigh,
-};
-/* Definitions for commQueue */
-osMessageQueueId_t commQueueHandle;
-const osMessageQueueAttr_t commQueue_attributes = {
-  .name = "commQueue"
-};
-/* Definitions for controlsSetpointMutex */
-osMutexId_t controlsSetpointMutexHandle;
-osStaticMutexDef_t controlsSetpointMutexControlBlock;
-const osMutexAttr_t controlsSetpointMutex_attributes = {
-  .name = "controlsSetpointMutex",
-  .cb_mem = &controlsSetpointMutexControlBlock,
-  .cb_size = sizeof(controlsSetpointMutexControlBlock),
-};
-/* Definitions for sensorsMutex */
-osMutexId_t sensorsMutexHandle;
-osStaticMutexDef_t sensorsMutexControlBlock;
-const osMutexAttr_t sensorsMutex_attributes = {
-  .name = "sensorsMutex",
-  .cb_mem = &sensorsMutexControlBlock,
-  .cb_size = sizeof(sensorsMutexControlBlock),
-};
-/* Definitions for printfMutex */
-osMutexId_t printfMutexHandle;
-osStaticMutexDef_t printfMutexControlBlock;
-const osMutexAttr_t printfMutex_attributes = {
-  .name = "printfMutex",
-  .cb_mem = &printfMutexControlBlock,
-  .cb_size = sizeof(printfMutexControlBlock),
-};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -137,11 +78,6 @@ static void MX_USART2_UART_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_RTC_Init(void);
-void StartControlTask(void *argument);
-void StartSensorTask(void *argument);
-void StartTelemetryTask(void *argument);
-void StartSafetyTask(void *argument);
-
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -196,73 +132,6 @@ int main(void)
   mc_stepper_init();
 
   /* USER CODE END 2 */
-
-  /* Init scheduler */
-  osKernelInitialize();
-  /* Create the mutex(es) */
-  /* creation of controlsSetpointMutex */
-  controlsSetpointMutexHandle = osMutexNew(&controlsSetpointMutex_attributes);
-
-  /* creation of sensorsMutex */
-  sensorsMutexHandle = osMutexNew(&sensorsMutex_attributes);
-
-  /* creation of printfMutex */
-  printfMutexHandle = osMutexNew(&printfMutex_attributes);
-
-  /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
-
-  // Set mutex handlers.
-  controls_set_mutexes(controlsSetpointMutexHandle, sensorsMutexHandle);
-  printf_set_mutexes(printfMutexHandle);
-
-  /* USER CODE END RTOS_MUTEX */
-
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
-  /* USER CODE END RTOS_SEMAPHORES */
-
-  /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
-
-  /* Create the queue(s) */
-  /* creation of commQueue */
-  commQueueHandle = osMessageQueueNew (4, sizeof(comm_line_message_t), &commQueue_attributes);
-
-  /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
-
-  // Set queue handlers.
-  comm_uart_set_queue(commQueueHandle);
-
-  /* USER CODE END RTOS_QUEUES */
-
-  /* Create the thread(s) */
-  /* creation of controlTask */
-  controlTaskHandle = osThreadNew(StartControlTask, NULL, &controlTask_attributes);
-
-  /* creation of sensorTask */
-  sensorTaskHandle = osThreadNew(StartSensorTask, NULL, &sensorTask_attributes);
-
-  /* creation of telemetryTask */
-  telemetryTaskHandle = osThreadNew(StartTelemetryTask, NULL, &telemetryTask_attributes);
-
-  /* creation of safetyTask */
-  safetyTaskHandle = osThreadNew(StartSafetyTask, NULL, &safetyTask_attributes);
-
-  /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
-
-  /* USER CODE BEGIN RTOS_EVENTS */
-  /* add events, ... */
-  /* USER CODE END RTOS_EVENTS */
-
-  /* Start scheduler */
-  osKernelStart();
-
-  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -772,13 +641,13 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
   /* DMA1_Channel4_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
   /* DMA1_Channel5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
 
 }
@@ -827,106 +696,6 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
-
-/* USER CODE BEGIN Header_StartControlTask */
-/**
-  * @brief  Function implementing the controlTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
-/* USER CODE END Header_StartControlTask */
-void StartControlTask(void *argument)
-{
-  /* USER CODE BEGIN 5 */
-  uint32_t last = osKernelGetTickCount();
-  /* Infinite loop */
-  for (;;) {
-    controls_run();
-    osDelayUntil(last += CONTROLS_PERIOD_MS);
-  }
-  /* USER CODE END 5 */
-}
-
-/* USER CODE BEGIN Header_StartSensorTask */
-/**
-* @brief Function implementing the sensorTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartSensorTask */
-void StartSensorTask(void *argument)
-{
-  /* USER CODE BEGIN StartSensorTask */
-  /* Infinite loop */
-  for (;;) {
-    osDelay(1);
-  }
-  /* USER CODE END StartSensorTask */
-}
-
-/* USER CODE BEGIN Header_StartTelemetryTask */
-/**
-* @brief Function implementing the telemetryTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartTelemetryTask */
-void StartTelemetryTask(void *argument)
-{
-  /* USER CODE BEGIN StartTelemetryTask */
-  /* Infinite loop */
-  for (;;) {
-
-    // Block until a line arrives.
-    comm_line_message_t msg;
-    if (osMessageQueueGet(commQueueHandle, &msg, NULL, osWaitForever) == osOK) {
-      comm_handle_line(msg.line);
-    }
-
-    osDelay(20);
-  }
-  /* USER CODE END StartTelemetryTask */
-}
-
-/* USER CODE BEGIN Header_StartSafetyTask */
-/**
-* @brief Function implementing the safetyTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartSafetyTask */
-void StartSafetyTask(void *argument)
-{
-  /* USER CODE BEGIN StartSafetyTask */
-  /* Infinite loop */
-  for (;;) {
-    can_id_allocatee_state_machine(); // TODO(Daniel): Improve implementation.
-    osDelay(5);
-  }
-  /* USER CODE END StartSafetyTask */
-}
-
-/**
-  * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM7 interrupt took place, inside
-  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
-  * a global variable "uwTick" used as application time base.
-  * @param  htim : TIM handle
-  * @retval None
-  */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-  /* USER CODE BEGIN Callback 0 */
-
-  /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM7)
-  {
-    HAL_IncTick();
-  }
-  /* USER CODE BEGIN Callback 1 */
-
-  /* USER CODE END Callback 1 */
-}
 
 /**
   * @brief  This function is executed in case of error occurrence.

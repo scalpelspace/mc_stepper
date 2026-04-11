@@ -18,16 +18,11 @@ volatile float step_rate_command = 0;
 
 /** Private variables. ********************************************************/
 
-static osMutexId_t s_setpoint_mutex = NULL;
-static osMutexId_t s_sensors_mutex = NULL;
-
 static mc_stepper_command_t control_command = {0}; // Command input.
 
 static control_mode_t prev_mode = CONTROL_MODE_NONE; // Previous control mode.
 
 // Controls inputs and outputs.
-static controls_sensors_t cache_sensor_data = {0};
-static mc_stepper_command_t cache_command = {CONTROL_MODE_NONE, 0.0f};
 static float position_setpoint = 0; // Set as rad.
 static float velocity_setpoint = 0; // Set as rad/s.
 
@@ -46,26 +41,14 @@ static float s_max_step_accel = MAX_STEP_ACCEL_STEPS_S2;
 static uint16_t on_target_ticks = 0;   // Position on-target latch count.
 static bool latched_on_target = false; // Position on-target latching check.
 
-/** Private mutex functions. **************************************************/
+/** Private snapshot functions. ***********************************************/
 
-static bool command_snapshot(mc_stepper_command_t *command) {
-  if (s_setpoint_mutex && osMutexAcquire(s_setpoint_mutex, 1) != osOK) {
-    return false;
-  }
+static void command_snapshot(mc_stepper_command_t *command) {
   *command = control_command;
-  if (s_setpoint_mutex)
-    osMutexRelease(s_setpoint_mutex);
-  return true;
 }
 
-static bool sensors_snapshot(controls_sensors_t *out) {
-  if (s_sensors_mutex && osMutexAcquire(s_sensors_mutex, 1) != osOK) {
-    return false;
-  }
+static void sensors_snapshot(controls_sensors_t *out) {
   *out = controls_sensors;
-  if (s_sensors_mutex)
-    osMutexRelease(s_sensors_mutex);
-  return true;
 }
 
 /** Private functions. ********************************************************/
@@ -154,12 +137,6 @@ static bool on_position_target(const mc_stepper_command_t command,
 
 /** Public functions. *********************************************************/
 
-void controls_set_mutexes(osMutexId_t setpoint_mutex,
-                          osMutexId_t sensors_mutex) {
-  s_setpoint_mutex = setpoint_mutex;
-  s_sensors_mutex = sensors_mutex;
-}
-
 void controls_set_accel_rad_s2(const float accel_rad_s2) {
   // Convert rad/s^2 to steps/s^2 using the current steps_per_rad calibration.
   // steps_per_rad is valid after controls_init() or controls_set_microsteps().
@@ -212,17 +189,8 @@ bool controls_set_microsteps(const uint16_t microsteps) {
 }
 
 void controls_set_setpoint(const mc_stepper_command_t command) {
-  if (s_setpoint_mutex) {
-    osMutexAcquire(s_setpoint_mutex, osWaitForever);
-  }
-
   // TODO: Implement command override policy.
   control_command = command;
-
-  if (s_setpoint_mutex) {
-    osMutexRelease(s_setpoint_mutex);
-  }
-
   controls_state = CONTROLS_START; // Transition state.
 }
 
@@ -240,50 +208,37 @@ void controls_state_machine(void) {
     break;
 
   case CONTROLS_START:
-    if (command_snapshot(&cmd)) {
+    command_snapshot(&cmd);
 
-      // Relative position control.
-      if (cmd.mode == CONTROL_MODE_POSITION_RELATIVE) {
-        // Resolve a relative position command to an absolute target using the
-        // current measured position. This happens exactly once, so the resolved
-        // absolute target is what gets stored in cache_command and used for the
-        // remainder of the move and only the remainder of the move.
-        controls_sensors_t snap = {0};
-        sensors_snapshot(&snap);
-        cmd.setpoint += snap.position_rad; // offset -> absolute rad.
-        cmd.mode = CONTROL_MODE_POSITION;  // Treat as absolute from here on.
-      }
-
-      cache_command = cmd;
-
-      if (cmd.mode != prev_mode) {
-        pid_init(&velocity_pi); // Reset, gains uneffected by init.
-        pid_init(&position_pd); // Reset, gains uneffected by init.
-        prev_mode = cmd.mode;
-      }
-
-      step_rate_command = 0.0f; // Safety.
-
-      // Reset position on target tick counter and latch variable.
-      on_target_ticks = 0;
-      latched_on_target = false;
-
-      controls_state = CONTROLS_EXECUTING;
-    } else {
-      controls_state = CONTROLS_IDLE;
+    // Relative position control.
+    if (cmd.mode == CONTROL_MODE_POSITION_RELATIVE) {
+      // Resolve a relative position command to an absolute target using the
+      // current measured position.
+      controls_sensors_t snap = {0};
+      sensors_snapshot(&snap);
+      cmd.setpoint += snap.position_rad; // offset -> absolute rad.
+      cmd.mode = CONTROL_MODE_POSITION;  // Treat as absolute from here on.
+      control_command = cmd;             // Persist resolved absolute target.
     }
+
+    if (cmd.mode != prev_mode) {
+      pid_init(&velocity_pi); // Reset, gains uneffected by init.
+      pid_init(&position_pd); // Reset, gains uneffected by init.
+      prev_mode = cmd.mode;
+    }
+
+    step_rate_command = 0.0f; // Safety.
+
+    // Reset position on target tick counter and latch variable.
+    on_target_ticks = 0;
+    latched_on_target = false;
+
+    controls_state = CONTROLS_EXECUTING;
     break;
 
   case CONTROLS_EXECUTING:
-    if (command_snapshot(&cmd))
-      cache_command = cmd;
-    else
-      cmd = cache_command;
-
-    if (sensors_snapshot(&data))
-      cache_sensor_data = data;
-    else
-      data = cache_sensor_data;
+    command_snapshot(&cmd);
+    sensors_snapshot(&data);
 
     control_loop(cmd, data);
     if (on_position_target(cmd, data)) {
@@ -293,15 +248,8 @@ void controls_state_machine(void) {
     break;
 
   case CONTROLS_ON_POSITION_TARGET:
-    if (command_snapshot(&cmd))
-      cache_command = cmd;
-    else
-      cmd = cache_command;
-
-    if (sensors_snapshot(&data))
-      cache_sensor_data = data;
-    else
-      data = cache_sensor_data;
+    command_snapshot(&cmd);
+    sensors_snapshot(&data);
 
     // Keep running the loop so the driver actively holds position.
     control_loop(cmd, data);
