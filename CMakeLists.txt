@@ -21,6 +21,8 @@ endif ()
 # Set the project name
 set(CMAKE_PROJECT_NAME mc_stepper)
 
+# Include toolchain file
+include("cmake/gcc-arm-none-eabi.cmake")
 
 # Enable compile command to ease indexing with e.g. clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
@@ -64,8 +66,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/scheduler.c
         Core/Src/tmc2209_hal_uart.c
         Core/Src/tmc2209_runner.c
-        Core/Src/ws2812b_hal_pwm.c
         Core/Src/uid_hash48.c
+        Core/Src/ws2812b_hal_pwm.c
 )
 
 # Add include paths
