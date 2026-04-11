@@ -13,6 +13,7 @@
 #include "comm.h"
 #include "configuration.h"
 #include "controls.h"
+#include "scheduler.h"
 #include "tmc2209_runner.h"
 #include "uid_hash48.h"
 #include "ws2812b_hal_pwm.h"
@@ -34,7 +35,7 @@ static bool s_dir_inhibit = false;
 
 /** Private functions. *********************************************************/
 
-void can_tx_absolute_angle(void) {
+static void can_tx_absolute_angle(void) {
   const can_message_t msg =
       mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_ABSOLUTE_ENCODER];
   uint32_t sigs[3] = {0};
@@ -46,7 +47,7 @@ void can_tx_absolute_angle(void) {
   can_send_message_raw32(&HCAN, &msg, sigs);
 }
 
-void sensors_run(void) {
+static void sensors_run(void) {
   // Absolute angle sensor.
   as5047p_get_angle();
 #ifdef MC_STEPPER_FULL_CAN_TELEMETRY
@@ -54,48 +55,7 @@ void sensors_run(void) {
 #endif
 }
 
-/** Public functions. *********************************************************/
-
-void mc_stepper_init(void) {
-  // Low level peripherals.
-  can_init();
-  can_db_init();
-
-  // UART debug/developer interface.
-  comm_init();
-
-  // On-board miscellaneous components.
-  ws2812b_init();
-  ws2812b_set_colour(0, 2, 1, 3); // Init colour.
-  ws2812b_update();
-
-  // Sensors.
-#if MC_STEPPER_USE_ABSOLUTE_ENCODER
-  as5047p_init(0x01, 0x00);
-  HAL_Delay(1);
-#endif
-#if MC_STEPPER_USE_RELATIVE_ENCODER
-  abi_encoder_init(&abi_encoder, &htim2);
-#endif
-
-  // Closed-loop controls. (Must be init before tmc2209_init()).
-  controls_init();
-
-  // CAN allocatee begin.
-  const allocatee_config_t l_config = {
-      can_tx_direct,
-      get_uid_hash48_parts,
-      allocatee_complete,
-  };
-  can_id_allocatee_start(l_config);
-
-  // TMC2209. (Must be init after controls_init()).
-  const tmc2209_configuration_t default_config = {false, 16, 500,     4,
-                                                  12,    8,  20000.0f};
-  tmc2209_init(default_config);
-}
-
-void controls_run(void) {
+static void controls_run(void) {
   // Update sensor data.
   sensors_run();
 
@@ -157,4 +117,55 @@ void controls_run(void) {
   }
 
   tmc2209_step_set_freq_hz(freq_hz);
+}
+
+/** Public functions. *********************************************************/
+
+void mc_stepper_init(void) {
+  // Low level peripherals.
+  can_init();
+  can_db_init();
+
+  // UART debug/developer interface.
+  comm_init();
+
+  // On-board miscellaneous components.
+  ws2812b_init();
+  ws2812b_set_colour(0, 2, 1, 3); // Init colour.
+  ws2812b_update();
+
+  // Sensors.
+#if MC_STEPPER_USE_ABSOLUTE_ENCODER
+  as5047p_init(0x01, 0x00);
+  HAL_Delay(1);
+#endif
+#if MC_STEPPER_USE_RELATIVE_ENCODER
+  abi_encoder_init(&abi_encoder, &htim2);
+#endif
+
+  // Closed-loop controls. (Must be init before tmc2209_init()).
+  controls_init();
+
+  // CAN allocatee begin.
+  const allocatee_config_t l_config = {
+      can_tx_direct,
+      get_uid_hash48_parts,
+      allocatee_complete,
+  };
+  can_id_allocatee_start(l_config);
+
+  // TMC2209. (Must be init after controls_init()).
+  const tmc2209_configuration_t default_config = {false, 16, 500,     4,
+                                                  12,    8,  20000.0f};
+  tmc2209_init(default_config);
+
+  // Scheduler.
+  scheduler_init(); // Initialize scheduler.
+  scheduler_add_task(controls_run, CONTROLS_PERIOD_MS);
+  scheduler_add_task(sensors_run, 1);
+  scheduler_add_task(can_id_allocatee_state_machine, 20);
+}
+
+void mc_stepper_run(void) {
+  scheduler_run(); // Run the scheduler.
 }

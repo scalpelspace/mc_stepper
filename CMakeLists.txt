@@ -61,6 +61,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/pid.c
         Core/Src/rtc.c
         Core/Src/run.c
+        Core/Src/scheduler.c
         Core/Src/tmc2209_hal_uart.c
         Core/Src/tmc2209_runner.c
         Core/Src/ws2812b_hal_pwm.c
