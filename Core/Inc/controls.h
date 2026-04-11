@@ -9,7 +9,6 @@
 
 /** Includes. *****************************************************************/
 
-#include "cmsis_os2.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -68,9 +67,6 @@ extern volatile controls_sensors_t controls_sensors; // Sensor data.
 extern volatile float step_rate_command;             // Set as steps/s.
 
 /** Public functions. *********************************************************/
-
-void controls_set_mutexes(osMutexId_t setpoint_mutex,
-                          osMutexId_t sensors_mutex);
 
 void controls_init(void);
 

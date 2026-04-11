@@ -127,10 +127,7 @@ void controls_run(void) {
       (s_pos_unwrapped_rad - s_prev_pos_rad) / CONTROLS_PERIOD_S;
   s_prev_pos_rad = s_pos_unwrapped_rad;
 
-  // Write sensor data for the controls loop, controls_sensors are volatile. The
-  // controls state machine reads them under its own mutex snapshot, so no mutex
-  // is needed here as long as controls_run() is the sole writer and runs in a
-  // single task context.
+  // Write sensor data for the controls loop, controls_sensors are volatile.
   controls_sensors.position_rad = s_pos_unwrapped_rad;
   controls_sensors.velocity_rad_s = velocity_rad_s;
 
