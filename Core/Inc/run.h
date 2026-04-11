@@ -12,8 +12,6 @@
 /** Public functions. *********************************************************/
 
 void mc_stepper_init(void);
-
-
-void controls_run(void);
+void mc_stepper_run(void);
 
 #endif
