@@ -162,7 +162,6 @@ void mc_stepper_init(void) {
   // Scheduler.
   scheduler_init(); // Initialize scheduler.
   scheduler_add_task(controls_run, CONTROLS_PERIOD_MS);
-  scheduler_add_task(sensors_run, 1);
   scheduler_add_task(can_id_allocatee_state_machine, 20);
 }
 
