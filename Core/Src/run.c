@@ -26,8 +26,11 @@ static abi_encoder_t abi_encoder = {0};
 // Encoder position tracking (multi-turn unwrapped).
 static float s_prev_raw_rad = 0.0f;
 static float s_pos_unwrapped_rad = 0.0f;
-static float s_prev_pos_rad = 0.0f;
 static bool s_encoder_initialized = false;
+
+// Velocity estimation: n-sample rolling average over position deltas.
+static float s_delta_buf[VELOCITY_AVERAGE_N] = {0.0f};
+static uint8_t s_delta_buf_idx = 0u;
 
 // Step output: direction change inhibit state.
 static bool s_last_dir = true;
@@ -67,7 +70,6 @@ static void controls_run(void) {
   if (!s_encoder_initialized) {
     s_prev_raw_rad = raw_rad;
     s_pos_unwrapped_rad = raw_rad;
-    s_prev_pos_rad = raw_rad;
     s_encoder_initialized = true;
   }
 
@@ -81,11 +83,16 @@ static void controls_run(void) {
   s_pos_unwrapped_rad += delta;
   s_prev_raw_rad = raw_rad;
 
-  // Backward-difference velocity estimate. At 1 ms this is low-noise for a
-  // 14-bit encoder; the position PD derivative filter handles residual noise.
+  // Velocity estimate: n-sample rolling average of position deltas to reduce
+  // quantization noise from the 14-bit encoder at low speeds.
+  s_delta_buf[s_delta_buf_idx] = delta;
+  s_delta_buf_idx = (s_delta_buf_idx + 1u) % VELOCITY_AVERAGE_N;
+  float delta_sum = 0.0f;
+  for (uint8_t i = 0u; i < VELOCITY_AVERAGE_N; i++) {
+    delta_sum += s_delta_buf[i];
+  }
   const float velocity_rad_s =
-      (s_pos_unwrapped_rad - s_prev_pos_rad) / CONTROLS_PERIOD_S;
-  s_prev_pos_rad = s_pos_unwrapped_rad;
+      (delta_sum / (float)VELOCITY_AVERAGE_N) / CONTROLS_PERIOD_S;
 
   // Write sensor data for the controls loop, controls_sensors are volatile.
   controls_sensors.position_rad = s_pos_unwrapped_rad;
