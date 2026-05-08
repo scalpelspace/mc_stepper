@@ -28,9 +28,8 @@ static float s_prev_raw_rad = 0.0f;
 static float s_pos_unwrapped_rad = 0.0f;
 static bool s_encoder_initialized = false;
 
-// Velocity estimation: n-sample rolling average over position deltas.
-static float s_delta_buf[VELOCITY_AVERAGE_N] = {0.0f};
-static uint8_t s_delta_buf_idx = 0u;
+// Velocity estimation: EMA over instantaneous position deltas.
+static float s_velocity_ema_rad_s = 0.0f;
 
 // Step output: direction change inhibit state.
 static bool s_last_dir = true;
@@ -83,16 +82,12 @@ static void controls_run(void) {
   s_pos_unwrapped_rad += delta;
   s_prev_raw_rad = raw_rad;
 
-  // Velocity estimate: n-sample rolling average of position deltas to reduce
+  // Velocity estimate: EMA of instantaneous position deltas to reduce
   // quantization noise from the 14-bit encoder at low speeds.
-  s_delta_buf[s_delta_buf_idx] = delta;
-  s_delta_buf_idx = (s_delta_buf_idx + 1u) % VELOCITY_AVERAGE_N;
-  float delta_sum = 0.0f;
-  for (uint8_t i = 0u; i < VELOCITY_AVERAGE_N; i++) {
-    delta_sum += s_delta_buf[i];
-  }
-  const float velocity_rad_s =
-      (delta_sum / (float)VELOCITY_AVERAGE_N) / CONTROLS_PERIOD_S;
+  const float raw_vel = delta / CONTROLS_PERIOD_S;
+  s_velocity_ema_rad_s = VELOCITY_EMA_ALPHA * raw_vel +
+                         (1.0f - VELOCITY_EMA_ALPHA) * s_velocity_ema_rad_s;
+  const float velocity_rad_s = s_velocity_ema_rad_s;
 
   // Write sensor data for the controls loop, controls_sensors are volatile.
   controls_sensors.position_rad = s_pos_unwrapped_rad;

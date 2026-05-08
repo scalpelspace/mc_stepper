@@ -9,7 +9,7 @@
 
 /** Definitions. **************************************************************/
 
-#define VELOCITY_AVERAGE_N (4u)
+#define VELOCITY_EMA_ALPHA (0.5f)
 
 /** Public functions. *********************************************************/
 
