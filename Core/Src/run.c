@@ -37,6 +37,21 @@ static bool s_dir_inhibit = false;
 
 /** Private functions. *********************************************************/
 
+static void can_tx_controls_diag(void) {
+  const can_message_t msg =
+      mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_DIAGNOSTIC];
+  const float pos_sp = controls_position_setpoint;
+  const float pos_meas = controls_sensors.position_rad;
+  const float vel_sp = controls_velocity_setpoint;
+  const float step_rate = controls_step_rate_command;
+  const float source_sigs[4] = {pos_sp, pos_sp - pos_meas, vel_sp, step_rate};
+  uint32_t sigs[4] = {0};
+  for (int i = 0; i < msg.signal_count; ++i) {
+    sigs[i] = physical_to_raw(source_sigs[i], &msg.signals[i]);
+  }
+  can_send_message_raw32(&HCAN, &msg, sigs);
+}
+
 static void can_tx_absolute_angle(void) {
   const can_message_t msg =
       mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_ABSOLUTE_ENCODER];
@@ -101,7 +116,7 @@ static void controls_run(void) {
   // before the next step edge. The TMC2209 datasheet requires DIR to be stable
   // >= 20 ns before a rising STEP edge; stopping for one full 1 ms tick is far
   // more than sufficient and avoids a missed-step on reversal.
-  const float sr = step_rate_command; // Snapshot the volatile once.
+  const float sr = controls_step_rate_command; // Snapshot the volatile once.
   const bool new_dir = (sr >= 0.0f);
   const uint32_t freq_hz = (uint32_t)fabsf(sr);
 
@@ -165,6 +180,7 @@ void mc_stepper_init(void) {
   scheduler_init(); // Initialize scheduler.
   scheduler_add_task(controls_run, CONTROLS_PERIOD_MS);
   scheduler_add_task(can_id_allocatee_state_machine, 20);
+  scheduler_add_task(can_tx_controls_diag, 20);
 }
 
 void mc_stepper_run(void) {

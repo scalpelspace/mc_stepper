@@ -16,15 +16,15 @@ volatile controls_state_t controls_state = CONTROLS_DISABLE;
 volatile controls_sensors_t controls_sensors = {0};
 volatile float step_rate_command = 0;
 
+volatile float controls_position_setpoint = 0;
+volatile float controls_velocity_setpoint = 0;
+volatile float controls_step_rate_command = 0;
+
 /** Private variables. ********************************************************/
 
 static mc_stepper_command_t control_command = {0}; // Command input.
 
 static control_mode_t prev_mode = CONTROL_MODE_NONE; // Previous control mode.
-
-// Controls inputs and outputs.
-static float position_setpoint = 0; // Set as rad.
-static float velocity_setpoint = 0; // Set as rad/s.
 
 static pid_controller_t position_pd = {0}; // Outputs velocity (rad/s).
 static pid_controller_t velocity_pi = {0}; // Outputs step-rate (steps/s).
@@ -79,18 +79,18 @@ static void control_loop(const mc_stepper_command_t command,
   switch (command.mode) {
 
   case CONTROL_MODE_SPEED:
-    velocity_setpoint = command.setpoint;
+    controls_velocity_setpoint = command.setpoint;
     step_rate_target =
-        pid_update(&velocity_pi, velocity_setpoint * steps_per_rad,
+        pid_update(&velocity_pi, controls_velocity_setpoint * steps_per_rad,
                    sensors.velocity_rad_s * steps_per_rad);
     break;
 
   case CONTROL_MODE_POSITION:
-    position_setpoint = command.setpoint;
-    velocity_setpoint =
-        pid_update(&position_pd, position_setpoint, sensors.position_rad);
+    controls_position_setpoint = command.setpoint;
+    controls_velocity_setpoint = pid_update(
+        &position_pd, controls_position_setpoint, sensors.position_rad);
     step_rate_target =
-        pid_update(&velocity_pi, velocity_setpoint * steps_per_rad,
+        pid_update(&velocity_pi, controls_velocity_setpoint * steps_per_rad,
                    sensors.velocity_rad_s * steps_per_rad);
     break;
 

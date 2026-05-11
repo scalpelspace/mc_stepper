@@ -64,7 +64,11 @@ typedef struct {
 
 extern volatile controls_state_t controls_state;     // State machine.
 extern volatile controls_sensors_t controls_sensors; // Sensor data.
-extern volatile float step_rate_command;             // Set as steps/s.
+
+// Controls inputs and outputs.
+extern volatile float controls_position_setpoint; // Set as rad.
+extern volatile float controls_velocity_setpoint; // Set as rad/s.
+extern volatile float controls_step_rate_command; // Set as steps/s.
 
 /** Public functions. *********************************************************/
 
