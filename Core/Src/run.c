@@ -111,7 +111,7 @@ static void controls_run(void) {
   // Run the closed-loop control state machine.
   controls_state_machine();
 
-  // Bridge: step_rate_command (signed float, steps/s) to hardware.
+  // Bridge: controls_step_rate_command (signed float, steps/s) to hardware.
   // Direction changes require a one-tick inhibit so the DIR pin is settled
   // before the next step edge. The TMC2209 datasheet requires DIR to be stable
   // >= 20 ns before a rising STEP edge; stopping for one full 1 ms tick is far

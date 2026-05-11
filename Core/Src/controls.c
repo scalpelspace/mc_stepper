@@ -14,7 +14,6 @@
 
 volatile controls_state_t controls_state = CONTROLS_DISABLE;
 volatile controls_sensors_t controls_sensors = {0};
-volatile float step_rate_command = 0;
 
 volatile float controls_position_setpoint = 0;
 volatile float controls_velocity_setpoint = 0;
@@ -68,8 +67,8 @@ static float step_rate_slew_limit(const float target) {
   const float max_delta =
       s_max_step_accel * CONTROLS_PERIOD_S; // steps/s per tick.
   const float delta =
-      clampf(target - step_rate_command, -max_delta, +max_delta);
-  return step_rate_command + delta;
+      clampf(target - controls_step_rate_command, -max_delta, +max_delta);
+  return controls_step_rate_command + delta;
 }
 
 static void control_loop(const mc_stepper_command_t command,
@@ -100,7 +99,7 @@ static void control_loop(const mc_stepper_command_t command,
   }
 
   // Apply step-rate acceleration/slew limiting (trapezoid-like behavior).
-  step_rate_command = step_rate_slew_limit(step_rate_target);
+  controls_step_rate_command = step_rate_slew_limit(step_rate_target);
 }
 
 static bool on_position_target(const mc_stepper_command_t command,
@@ -200,7 +199,7 @@ void controls_state_machine(void) {
 
   switch (controls_state) {
   case CONTROLS_DISABLE:
-    step_rate_command = 0.0f; // Safety.
+    controls_step_rate_command = 0.0f; // Safety.
     break;
 
   case CONTROLS_IDLE:
@@ -227,7 +226,7 @@ void controls_state_machine(void) {
       prev_mode = cmd.mode;
     }
 
-    step_rate_command = 0.0f; // Safety.
+    controls_step_rate_command = 0.0f; // Safety.
 
     // Reset position on target tick counter and latch variable.
     on_target_ticks = 0;
@@ -261,7 +260,7 @@ void controls_state_machine(void) {
     break;
 
   case CONTROLS_FAULT:
-    step_rate_command = 0.0f; // Safety.
+    controls_step_rate_command = 0.0f; // Safety.
     break;
   default:
     break;
