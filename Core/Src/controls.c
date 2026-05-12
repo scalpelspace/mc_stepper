@@ -142,10 +142,10 @@ void controls_init(void) {
   // Position.
   pid_init(&position_pid);
   position_pid.k_p = 3.5f;
-  position_pid.k_i = 10.0f;
+  position_pid.k_i = 0.0f;
   position_pid.integral_min = -2.5f;
   position_pid.integral_max = 2.5f;
-  position_pid.k_d = 0.22f;
+  position_pid.k_d = 0.5f;
   position_pid.tau = 0.02f;
   position_pid.output_min = -5.0f;
   position_pid.output_max = 5.0f;
@@ -186,6 +186,28 @@ void controls_redatum_shift(const float delta_rad) {
   // the next update.
   position_pid.prev_measurement += delta_rad;
   __enable_irq();
+}
+
+void controls_set_gains(const float k_p, const float k_i, const float k_d) {
+  __disable_irq();
+  position_pid.k_p = k_p;
+  position_pid.k_i = k_i;
+  position_pid.k_d = k_d;
+  __enable_irq();
+}
+
+void controls_get_gains(float *k_p, float *k_i, float *k_d) {
+  __disable_irq();
+  const float p = position_pid.k_p;
+  const float i = position_pid.k_i;
+  const float d = position_pid.k_d;
+  __enable_irq();
+  if (k_p)
+    *k_p = p;
+  if (k_i)
+    *k_i = i;
+  if (k_d)
+    *k_d = d;
 }
 
 void controls_set_setpoint(const mc_stepper_command_t command) {

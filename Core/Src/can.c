@@ -222,6 +222,45 @@ void can_rx_datetime_get(can_header_t *header, uint8_t *data) {
   can_send_message_raw32(&HCAN, msg, values);
 }
 
+void can_rx_controls_tune(can_header_t *header, uint8_t *data) {
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_TUNE];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
+  // signals[1] is reserved0.
+  const float k_p = (float)decode_signal(&msg->signals[2], data);
+  const float k_i = (float)decode_signal(&msg->signals[3], data);
+  const float k_d = (float)decode_signal(&msg->signals[4], data);
+
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
+    return;
+  }
+
+  controls_set_gains(k_p, k_i, k_d);
+}
+
+void can_rx_controls_tune_get(can_header_t *header, uint8_t *data) {
+  const can_message_t *req =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_TUNE_GET];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
+    return;
+  }
+
+  float k_p, k_i, k_d;
+  controls_get_gains(&k_p, &k_i, &k_d);
+
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_TUNE_GET_RESPONSE];
+  const float source_sigs[3] = {k_p, k_i, k_d};
+  uint32_t sigs[3] = {0};
+  for (int i = 0; i < msg->signal_count; ++i) {
+    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
+  }
+  can_send_message_raw32(&HCAN, msg, sigs);
+}
+
 void can_rx_version_get(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_VERSION_GET_RESPONSE];
@@ -311,6 +350,10 @@ void can_db_init(void) {
       (can_rx_handler_t)can_rx_datetime_get;
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_VERSION_GET].rx_handler =
       (can_rx_handler_t)can_rx_version_get;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_TUNE].rx_handler =
+      (can_rx_handler_t)can_rx_controls_tune;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_TUNE_GET].rx_handler =
+      (can_rx_handler_t)can_rx_controls_tune_get;
 }
 
 HAL_StatusTypeDef can_send_message_raw32(CAN_HandleTypeDef *h_can_x,
