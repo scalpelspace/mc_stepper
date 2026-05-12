@@ -13,8 +13,8 @@
 /** Public variables. *********************************************************/
 
 volatile controls_state_t controls_state = CONTROLS_DISABLE;
-volatile controls_sensors_t controls_sensors = {0};
 
+volatile float controls_position_meas_rad = 0;
 volatile float controls_position_setpoint = 0;
 volatile float controls_velocity_setpoint = 0;
 volatile float controls_step_rate_command = 0;
@@ -25,8 +25,7 @@ static mc_stepper_command_t control_command = {0}; // Command input.
 
 static control_mode_t prev_mode = CONTROL_MODE_NONE; // Previous control mode.
 
-static pid_controller_t position_pd = {0}; // Outputs velocity (rad/s).
-static pid_controller_t velocity_pi = {0}; // Outputs step-rate (steps/s).
+static pid_controller_t position_pid = {0}; // Outputs velocity (rad/s).
 
 // Stepper motor configuration.
 static uint16_t full_steps_per_rev = 200;
@@ -44,10 +43,6 @@ static bool latched_on_target = false; // Position on-target latching check.
 
 static void command_snapshot(mc_stepper_command_t *command) {
   *command = control_command;
-}
-
-static void sensors_snapshot(controls_sensors_t *out) {
-  *out = controls_sensors;
 }
 
 /** Private functions. ********************************************************/
@@ -71,26 +66,22 @@ static float step_rate_slew_limit(const float target) {
   return controls_step_rate_command + delta;
 }
 
-static void control_loop(const mc_stepper_command_t command,
-                         const controls_sensors_t sensors) {
+static void control_loop(const mc_stepper_command_t command) {
   float step_rate_target;
 
   switch (command.mode) {
 
   case CONTROL_MODE_SPEED:
+    // Open-loop: map speed setpoint directly to step rate.
     controls_velocity_setpoint = command.setpoint;
-    step_rate_target =
-        pid_update(&velocity_pi, controls_velocity_setpoint * steps_per_rad,
-                   sensors.velocity_rad_s * steps_per_rad);
+    step_rate_target = controls_velocity_setpoint * steps_per_rad;
     break;
 
   case CONTROL_MODE_POSITION:
     controls_position_setpoint = command.setpoint;
     controls_velocity_setpoint = pid_update(
-        &position_pd, controls_position_setpoint, sensors.position_rad);
-    step_rate_target =
-        pid_update(&velocity_pi, controls_velocity_setpoint * steps_per_rad,
-                   sensors.velocity_rad_s * steps_per_rad);
+        &position_pid, controls_position_setpoint, controls_position_meas_rad);
+    step_rate_target = controls_velocity_setpoint * steps_per_rad;
     break;
 
   default:
@@ -102,8 +93,7 @@ static void control_loop(const mc_stepper_command_t command,
   controls_step_rate_command = step_rate_slew_limit(step_rate_target);
 }
 
-static bool on_position_target(const mc_stepper_command_t command,
-                               const controls_sensors_t sensors) {
+static bool on_position_target(const mc_stepper_command_t command) {
   // Only meaningful for position moves.
   if (command.mode != CONTROL_MODE_POSITION)
     return false;
@@ -111,13 +101,10 @@ static bool on_position_target(const mc_stepper_command_t command,
   // Choose hysteresis thresholds depending on current latched state.
   const float pos_tol = latched_on_target ? POSITION_TOLERANCE_EXIT_RAD
                                           : POSITION_TOLERANCE_ENTER_RAD;
-  const float vel_tol = latched_on_target ? VELOCITY_TOLERANCE_EXIT_RAD_S
-                                          : VELOCITY_TOLERANCE_ENTER_RAD_S;
 
-  const float pos_err = command.setpoint - sensors.position_rad;
-  const float vel_abs = fabsf(sensors.velocity_rad_s);
+  const float pos_err = command.setpoint - controls_position_meas_rad;
 
-  const bool in_band = (fabsf(pos_err) <= pos_tol) && (vel_abs <= vel_tol);
+  const bool in_band = (fabsf(pos_err) <= pos_tol);
 
   if (in_band) {
     if (on_target_ticks < ON_TARGET_DWELL_TICKS)
@@ -148,28 +135,16 @@ void controls_init(void) {
                   (2.0f * (float)M_PI);
 
   // Position.
-  pid_init(&position_pd);
-  position_pd.k_p = 8.0f;
-  position_pd.k_i = 0.0f;
-  position_pd.k_d = 0.15f;
-  position_pd.tau = 0.02f;
-  position_pd.output_min = -20.0f;
-  position_pd.output_max = 20.0f;
-  position_pd.integral_min = 0.0f;
-  position_pd.integral_max = 0.0f;
-  position_pd.T = CONTROLS_PERIOD_S;
-
-  // Velocity.
-  pid_init(&velocity_pi);
-  velocity_pi.k_p = 0.3f;
-  velocity_pi.k_i = 3.0f;
-  velocity_pi.k_d = 0.0f;
-  velocity_pi.tau = 0.0f;
-  velocity_pi.output_min = -5000.0f;
-  velocity_pi.output_max = 5000.0f;
-  velocity_pi.integral_min = -500.0f;
-  velocity_pi.integral_max = 500.0f;
-  velocity_pi.T = CONTROLS_PERIOD_S;
+  pid_init(&position_pid);
+  position_pid.k_p = 3.5f;
+  position_pid.k_i = 10.0f;
+  position_pid.integral_min = -2.5f;
+  position_pid.integral_max = 2.5f;
+  position_pid.k_d = 0.22f;
+  position_pid.tau = 0.02f;
+  position_pid.output_min = -5.0f;
+  position_pid.output_max = 5.0f;
+  position_pid.T = CONTROLS_PERIOD_S;
 
   // Reset position on target tick counter and latch variable.
   on_target_ticks = 0;
@@ -187,15 +162,39 @@ bool controls_set_microsteps(const uint16_t microsteps) {
   return false;
 }
 
+void controls_redatum_shift(const float delta_rad) {
+  controls_position_setpoint += delta_rad;
+  if (control_command.mode == CONTROL_MODE_POSITION) {
+    control_command.setpoint += delta_rad;
+  }
+  // Clear PID history. The position error is unchanged by the shift, but the
+  // derivative term would see a spurious jump on the next tick otherwise.
+  pid_init(&position_pid);
+}
+
 void controls_set_setpoint(const mc_stepper_command_t command) {
-  // TODO: Implement command override policy.
+  // Gate on change: if the incoming command matches the active one, do not
+  // disturb the state machine. Repeated retransmissions of the same target
+  // (commander heartbeat, enable-hold, periodic resend) would otherwise kick
+  // the state back to CONTROLS_START every frame, resetting the on-target dwell
+  // counter and preventing the ON_POSITION_TARGET latch from ever closing.
+  //
+  // Note: POSITION_RELATIVE is resolved to POSITION inside CONTROLS_START, so
+  // a repeated identical POSITION_RELATIVE frame will still mismatch here (mode
+  // POSITION_RELATIVE vs stored POSITION) and re-trigger a fresh move, which
+  // matches the one-shot semantics of a relative command.
+  if (command.mode == control_command.mode &&
+      fabsf(command.setpoint - control_command.setpoint) <=
+          SETPOINT_EPSILON_RAD) {
+    return;
+  }
+
   control_command = command;
   controls_state = CONTROLS_START; // Transition state.
 }
 
 void controls_state_machine(void) {
   mc_stepper_command_t cmd = {0};
-  controls_sensors_t data = {0};
 
   switch (controls_state) {
   case CONTROLS_DISABLE:
@@ -211,18 +210,13 @@ void controls_state_machine(void) {
 
     // Relative position control.
     if (cmd.mode == CONTROL_MODE_POSITION_RELATIVE) {
-      // Resolve a relative position command to an absolute target using the
-      // current measured position.
-      controls_sensors_t snap = {0};
-      sensors_snapshot(&snap);
-      cmd.setpoint += snap.position_rad; // offset -> absolute rad.
-      cmd.mode = CONTROL_MODE_POSITION;  // Treat as absolute from here on.
-      control_command = cmd;             // Persist resolved absolute target.
+      cmd.setpoint += controls_position_meas_rad; // offset -> absolute rad.
+      cmd.mode = CONTROL_MODE_POSITION; // Treat as absolute from here on.
+      control_command = cmd;            // Persist resolved absolute target.
     }
 
     if (cmd.mode != prev_mode) {
-      pid_init(&velocity_pi); // Reset, gains uneffected by init.
-      pid_init(&position_pd); // Reset, gains uneffected by init.
+      pid_init(&position_pid); // Reset, gains uneffected by init.
       prev_mode = cmd.mode;
     }
 
@@ -237,10 +231,9 @@ void controls_state_machine(void) {
 
   case CONTROLS_EXECUTING:
     command_snapshot(&cmd);
-    sensors_snapshot(&data);
 
-    control_loop(cmd, data);
-    if (on_position_target(cmd, data)) {
+    control_loop(cmd);
+    if (on_position_target(cmd)) {
       // Transition state.
       controls_state = CONTROLS_ON_POSITION_TARGET;
     }
@@ -248,13 +241,12 @@ void controls_state_machine(void) {
 
   case CONTROLS_ON_POSITION_TARGET:
     command_snapshot(&cmd);
-    sensors_snapshot(&data);
 
     // Keep running the loop so the driver actively holds position.
-    control_loop(cmd, data);
+    control_loop(cmd);
 
     // If there is drift outside the exit band, resume normal execution.
-    if (!on_position_target(cmd, data)) {
+    if (!on_position_target(cmd)) {
       controls_state = CONTROLS_EXECUTING;
     }
     break;
