@@ -84,6 +84,23 @@ void controls_set_accel_rad_s2(float accel_rad_s2);
 void controls_set_setpoint(mc_stepper_command_t command);
 
 /**
+ * @brief Live-tune the position PID gains.
+ *
+ * Safe to call from any context. Does not reset integrator/derivative state,
+ * so use small steps to avoid step-input transients.
+ */
+void controls_set_gains(float k_p, float k_i, float k_d);
+
+/**
+ * @brief Read back the current position PID gains.
+ *
+ * @param k_p Out. Nullable.
+ * @param k_i Out. Nullable.
+ * @param k_d Out. Nullable.
+ */
+void controls_get_gains(float *k_p, float *k_i, float *k_d);
+
+/**
  * @brief Shift the controls-layer position frame by delta_rad.
  *
  * @param delta_rad Position delta in radians.
