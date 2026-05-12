@@ -31,17 +31,24 @@ static bool s_encoder_initialized = false;
 // Velocity estimation: EMA over instantaneous position deltas.
 static float s_velocity_ema_rad_s = 0.0f;
 
-// Step output: direction change inhibit state.
+// Step output: direction change inhibit state. s_last_dir_valid forces the
+// first bridge pass to assert DIR explicitly, since the TMC2209 DIR pin powers
+// up in an undefined state that may not match s_last_dir's default.
 static bool s_last_dir = true;
+static bool s_last_dir_valid = false;
 static bool s_dir_inhibit = false;
 
-/** Private functions. *********************************************************/
+// Software zero (re-datum) request. Set from any context (incl. CAN ISR),
+// serviced at the top of the next controls tick when state is at standstill.
+static volatile bool s_redatum_pending = false;
+
+/** Private functions. ********************************************************/
 
 static void can_tx_controls_diag(void) {
   const can_message_t msg =
       mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_DIAGNOSTIC];
   const float pos_sp = controls_position_setpoint;
-  const float pos_meas = controls_sensors.position_rad;
+  const float pos_meas = controls_position_meas_rad;
   const float vel_sp = controls_velocity_setpoint;
   const float step_rate = controls_step_rate_command;
   const float source_sigs[4] = {pos_sp, pos_sp - pos_meas, vel_sp, step_rate};
@@ -88,7 +95,7 @@ static void controls_run(void) {
   }
 
   // Wrap detection threshold is half a revolution in radians.
-  float delta = -(raw_rad - s_prev_raw_rad);
+  float delta = raw_rad - s_prev_raw_rad;
   if (delta > (float)M_PI)
     delta -= 2.0f * (float)M_PI;
   if (delta < -(float)M_PI)
@@ -97,16 +104,22 @@ static void controls_run(void) {
   s_pos_unwrapped_rad += delta;
   s_prev_raw_rad = raw_rad;
 
-  // Velocity estimate: EMA of instantaneous position deltas to reduce
-  // quantization noise from the 14-bit encoder at low speeds.
-  const float raw_vel = delta / CONTROLS_PERIOD_S;
-  s_velocity_ema_rad_s = VELOCITY_EMA_ALPHA * raw_vel +
-                         (1.0f - VELOCITY_EMA_ALPHA) * s_velocity_ema_rad_s;
-  const float velocity_rad_s = s_velocity_ema_rad_s;
+  // Service pending software-zero request. Only apply at standstill so the
+  // setpoint frame is stable while the loop is actively commanding steps.
+  // Deltas in s_delta_buf are frame-invariant, so velocity estimate is
+  // unaffected and needs no reset.
+  if (s_redatum_pending) {
+    if (controls_state == CONTROLS_DISABLE || controls_state == CONTROLS_IDLE ||
+        controls_state == CONTROLS_ON_POSITION_TARGET) {
+      const float shift = -s_pos_unwrapped_rad;
+      s_pos_unwrapped_rad = 0.0f;
+      controls_redatum_shift(shift);
+    }
+    s_redatum_pending = false;
+  }
 
   // Write sensor data for the controls loop, controls_sensors are volatile.
-  controls_sensors.position_rad = s_pos_unwrapped_rad;
-  controls_sensors.velocity_rad_s = velocity_rad_s;
+  controls_position_meas_rad = s_pos_unwrapped_rad;
 
   // Run the closed-loop control state machine.
   controls_state_machine();
@@ -120,10 +133,11 @@ static void controls_run(void) {
   const bool new_dir = (sr >= 0.0f);
   const uint32_t freq_hz = (uint32_t)fabsf(sr);
 
-  if (new_dir != s_last_dir) {
+  if (new_dir != s_last_dir || !s_last_dir_valid) {
     tmc2209_step_set_freq_hz(0); // Halt steps immediately.
     tmc2209_step_direction(new_dir);
     s_last_dir = new_dir;
+    s_last_dir_valid = true;
     s_dir_inhibit = true; // Suppress output for one additional tick.
     return;
   }
@@ -137,6 +151,8 @@ static void controls_run(void) {
 }
 
 /** Public functions. *********************************************************/
+
+void position_request_zero(void) { s_redatum_pending = true; }
 
 void mc_stepper_init(void) {
   // Low level peripherals.

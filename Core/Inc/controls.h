@@ -20,14 +20,13 @@
 
 // Max allowed step-rate acceleration (steps/s^2).
 #ifndef MAX_STEP_ACCEL_STEPS_S2
-#define MAX_STEP_ACCEL_STEPS_S2 (20000.0f)
+#define MAX_STEP_ACCEL_STEPS_S2 (8000.0f)
 #endif
 
 // Controls on target constants.
-#define POSITION_TOLERANCE_ENTER_RAD (0.005f)  // ~0.29 deg.
-#define POSITION_TOLERANCE_EXIT_RAD (0.010f)   // Hysteresis.
-#define VELOCITY_TOLERANCE_ENTER_RAD_S (0.05f) // ~2.9 deg/s.
-#define VELOCITY_TOLERANCE_EXIT_RAD_S (0.10f)  // Hysteresis.
+#define POSITION_TOLERANCE_ENTER_RAD (0.005f)
+#define POSITION_TOLERANCE_EXIT_RAD (0.015f)
+#define SETPOINT_EPSILON_RAD (1e-4f)
 #define ON_TARGET_DWELL_MS (50u)
 #define ON_TARGET_DWELL_TICKS                                                  \
   ((ON_TARGET_DWELL_MS + CONTROLS_PERIOD_MS - 1u) / CONTROLS_PERIOD_MS)
@@ -43,11 +42,6 @@ typedef enum {
   CONTROLS_FAULT = 5,
 } controls_state_t;
 
-typedef struct {
-  float position_rad;   // Measured absolute position (rad).
-  float velocity_rad_s; // Measured velocity (rad/s).
-} controls_sensors_t;
-
 typedef enum {
   CONTROL_MODE_NONE = 0,
   CONTROL_MODE_POSITION = 1,
@@ -62,13 +56,13 @@ typedef struct {
 
 /** Public variables. *********************************************************/
 
-extern volatile controls_state_t controls_state;     // State machine.
-extern volatile controls_sensors_t controls_sensors; // Sensor data.
+extern volatile controls_state_t controls_state; // State machine.
 
-// Controls inputs and outputs.
-extern volatile float controls_position_setpoint; // Set as rad.
-extern volatile float controls_velocity_setpoint; // Set as rad/s.
-extern volatile float controls_step_rate_command; // Set as steps/s.
+// Controls inputs and outputs, exposed partially for diagnostics.
+extern volatile float controls_position_meas_rad; // Sensor data.
+extern volatile float controls_position_setpoint; // rad, outer loop target.
+extern volatile float controls_velocity_setpoint; // rad/s, inner loop target.
+extern volatile float controls_step_rate_command; // steps/s, control output.
 
 /** Public functions. *********************************************************/
 
@@ -83,11 +77,28 @@ bool controls_set_microsteps(uint16_t microsteps);
  * limit used by the slew-rate filter. Call after controls_init() and
  * whenever microstep configuration changes.
  *
- * @param accel_rad_s2  Desired acceleration limit in rad/s^2.
+ * @param accel_rad_s2 Desired acceleration limit in rad/s^2.
  */
 void controls_set_accel_rad_s2(float accel_rad_s2);
 
 void controls_set_setpoint(mc_stepper_command_t command);
+
+/**
+ * @brief Shift the controls-layer position frame by delta_rad.
+ *
+ * @param delta_rad Position delta in radians.
+ *
+ * Adds delta_rad to the active position setpoint (and to the pending command
+ * setpoint when in POSITION mode), then re-inits both PIDs to avoid a
+ * derivative kick across the frame change.
+ *
+ * Pair with a matching shift of the sensor-side unwrapped position so the
+ * physical target is preserved.
+ *
+ * Not safe to call while CONTROLS_EXECUTING or CONTROLS_START. The caller must
+ * gate on a standstill state (DISABLE, IDLE or ON_POSITION_TARGET).
+ */
+void controls_redatum_shift(float delta_rad);
 
 void controls_state_machine(void);
 
