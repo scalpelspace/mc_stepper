@@ -8,6 +8,7 @@
 
 #include "controls.h"
 #include "pid.h"
+#include "stm32l4xx.h"
 #include <math.h>
 
 /** Public variables. *********************************************************/
@@ -35,6 +36,7 @@ static float steps_per_rad;
 // Runtime acceleration limit (steps/s^2). Defaults to the compile-time value.
 // Overridden via controls_set_accel_rad_s2() once steps_per_rad is known.
 static float s_max_step_accel = MAX_STEP_ACCEL_STEPS_S2;
+static float s_accel_rad_s2 = 0.0f; // Cached rad/s^2 for microstep rescale.
 
 static uint16_t on_target_ticks = 0;   // Position on-target latch count.
 static bool latched_on_target = false; // Position on-target latching check.
@@ -42,7 +44,9 @@ static bool latched_on_target = false; // Position on-target latching check.
 /** Private snapshot functions. ***********************************************/
 
 static void command_snapshot(mc_stepper_command_t *command) {
+  __disable_irq();
   *command = control_command;
+  __enable_irq();
 }
 
 /** Private functions. ********************************************************/
@@ -126,6 +130,7 @@ static bool on_position_target(const mc_stepper_command_t command) {
 void controls_set_accel_rad_s2(const float accel_rad_s2) {
   // Convert rad/s^2 to steps/s^2 using the current steps_per_rad calibration.
   // steps_per_rad is valid after controls_init() or controls_set_microsteps().
+  s_accel_rad_s2 = accel_rad_s2;
   s_max_step_accel = accel_rad_s2 * steps_per_rad;
 }
 
@@ -149,6 +154,10 @@ void controls_init(void) {
   // Reset position on target tick counter and latch variable.
   on_target_ticks = 0;
   latched_on_target = false;
+
+  // Bring the FSM out of DISABLE so standstill-gated APIs (e.g. set_microsteps)
+  // can run after init.
+  controls_state = CONTROLS_IDLE;
 }
 
 bool controls_set_microsteps(const uint16_t microsteps) {
@@ -157,19 +166,26 @@ bool controls_set_microsteps(const uint16_t microsteps) {
     microstep_config = microsteps;
     steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
                     (2.0f * (float)M_PI);
+    // Re-derive the steps/s^2 limit so the rad/s^2 envelope is preserved.
+    if (s_accel_rad_s2 > 0.0f) {
+      s_max_step_accel = s_accel_rad_s2 * steps_per_rad;
+    }
     return true;
   }
   return false;
 }
 
 void controls_redatum_shift(const float delta_rad) {
+  __disable_irq();
   controls_position_setpoint += delta_rad;
   if (control_command.mode == CONTROL_MODE_POSITION) {
     control_command.setpoint += delta_rad;
   }
-  // Clear PID history. The position error is unchanged by the shift, but the
-  // derivative term would see a spurious jump on the next tick otherwise.
-  pid_init(&position_pid);
+  // Shift prev_measurement by the same delta so the derivative path sees no
+  // discontinuity. pid_init() would zero prev_measurement and cause a kick on
+  // the next update.
+  position_pid.prev_measurement += delta_rad;
+  __enable_irq();
 }
 
 void controls_set_setpoint(const mc_stepper_command_t command) {
@@ -189,8 +205,10 @@ void controls_set_setpoint(const mc_stepper_command_t command) {
     return;
   }
 
+  __disable_irq();
   control_command = command;
   controls_state = CONTROLS_START; // Transition state.
+  __enable_irq();
 }
 
 void controls_state_machine(void) {
@@ -217,6 +235,9 @@ void controls_state_machine(void) {
 
     if (cmd.mode != prev_mode) {
       pid_init(&position_pid); // Reset, gains uneffected by init.
+      // Seed prev_measurement so the first derivative tick does not see a
+      // (measurement - 0) jump and saturate the output.
+      position_pid.prev_measurement = controls_position_meas_rad;
       prev_mode = cmd.mode;
     }
 

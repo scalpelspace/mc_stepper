@@ -28,9 +28,6 @@ static float s_prev_raw_rad = 0.0f;
 static float s_pos_unwrapped_rad = 0.0f;
 static bool s_encoder_initialized = false;
 
-// Velocity estimation: EMA over instantaneous position deltas.
-static float s_velocity_ema_rad_s = 0.0f;
-
 // Step output: direction change inhibit state. s_last_dir_valid forces the
 // first bridge pass to assert DIR explicitly, since the TMC2209 DIR pin powers
 // up in an undefined state that may not match s_last_dir's default.
