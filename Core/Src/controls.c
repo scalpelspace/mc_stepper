@@ -47,7 +47,7 @@ static bool latched_on_target = false; // Position on-target latching check.
 // measured position, so the loop never has to bang-bang against motor limits.
 static float s_profile_pos = 0.0f;        // Planned position (rad).
 static float s_profile_vel = 0.0f;        // Planned velocity (rad/s).
-static float s_max_velocity_rad_s = 3.0f; // Profile peak velocity.
+static float s_max_velocity_rad_s = 5.0f; // Profile peak velocity.
 
 /** Private snapshot functions. ***********************************************/
 
@@ -208,10 +208,10 @@ void controls_init(void) {
   // Position.
   pid_init(&position_pid);
   position_pid.k_p = 50.0f;
-  position_pid.k_i = 10.0f;
-  position_pid.integral_min = -25.0f;
-  position_pid.integral_max = 25.0f;
-  position_pid.k_d = 5.0f;
+  position_pid.k_i = 3.0f;
+  position_pid.integral_min = -3.0f;
+  position_pid.integral_max = 3.0f;
+  position_pid.k_d = 17.0f;
   position_pid.tau = 0.02f;
   position_pid.output_min = -100.0f;
   position_pid.output_max = 100.0f;

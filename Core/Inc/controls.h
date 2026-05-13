@@ -24,12 +24,18 @@
 #endif
 
 // Controls on target constants.
-#define POSITION_TOLERANCE_ENTER_RAD (0.005f)
+#define POSITION_TOLERANCE_ENTER_RAD (0.0025f)
 #define POSITION_TOLERANCE_EXIT_RAD (0.015f)
 #define SETPOINT_EPSILON_RAD (1e-4f)
-#define ON_TARGET_DWELL_MS (50u)
+#define ON_TARGET_DWELL_MS (25u)
 #define ON_TARGET_DWELL_TICKS                                                  \
   ((ON_TARGET_DWELL_MS + CONTROLS_PERIOD_MS - 1u) / CONTROLS_PERIOD_MS)
+
+// PID gain-scheduling thresholds. The integrator only winds up when the rotor
+// is within the fine-tune band, so a large move does not accumulate windup
+// that would overshoot. Hysteresis between enter/exit prevents chattering.
+#define PID_FINE_REGIME_ENTER_RAD (0.010f)
+#define PID_FINE_REGIME_EXIT_RAD (0.020f)
 
 /** Public types. *************************************************************/
 
