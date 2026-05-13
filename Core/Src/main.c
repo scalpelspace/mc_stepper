@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "can_driver/can_id_allocatee.h"
 #include "comm.h"
+#include "init.h"
 #include "run.h"
 /* USER CODE END Includes */
 
