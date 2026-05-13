@@ -41,6 +41,14 @@ static float s_accel_rad_s2 = 0.0f; // Cached rad/s^2 for microstep rescale.
 static uint16_t on_target_ticks = 0;   // Position on-target latch count.
 static bool latched_on_target = false; // Position on-target latching check.
 
+// Trapezoidal motion profile state. The profile plans a feasible position and
+// velocity trajectory toward the setpoint that respects s_accel_rad_s2 and
+// s_max_velocity_rad_s. PID then corrects deviation between profile and
+// measured position, so the loop never has to bang-bang against motor limits.
+static float s_profile_pos = 0.0f;        // Planned position (rad).
+static float s_profile_vel = 0.0f;        // Planned velocity (rad/s).
+static float s_max_velocity_rad_s = 3.0f; // Profile peak velocity.
+
 /** Private snapshot functions. ***********************************************/
 
 static void command_snapshot(mc_stepper_command_t *command) {
@@ -70,6 +78,50 @@ static float step_rate_slew_limit(const float target) {
   return controls_step_rate_command + delta;
 }
 
+/**
+ * @brief Reset the motion profile to the current measured position at rest.
+ *
+ * Call on each new move (CONTROLS_START) so the planned trajectory begins from
+ * where the rotor actually is.
+ */
+static void profile_reset(void) {
+  s_profile_pos = controls_position_meas_rad;
+  s_profile_vel = 0.0f;
+}
+
+/**
+ * @brief Advance the trapezoidal profile one tick toward the given target.
+ *
+ * Generates the next planned (position, velocity) point respecting the
+ * acceleration and peak velocity limits. Uses the standard brake-distance test
+ * (v^2/2a) to decide acceleration/cruise vs deceleration.
+ *
+ * @param target Target position (rad).
+ */
+static void profile_step(const float target) {
+  const float accel = (s_accel_rad_s2 > 0.0f) ? s_accel_rad_s2 : 100.0f;
+  const float dt = CONTROLS_PERIOD_S;
+  const float remaining = target - s_profile_pos;
+  const float v = s_profile_vel;
+
+  const float brake_dist = (v * v) / (2.0f * accel);
+
+  float desired_vel;
+  if (fabsf(remaining) <= brake_dist) {
+    // Decelerate, aiming to arrive at target with v=0.
+    desired_vel = copysignf(sqrtf(2.0f * accel * fabsf(remaining)), remaining);
+  } else {
+    // Accelerate/cruise toward max velocity in the direction of remaining.
+    desired_vel = copysignf(s_max_velocity_rad_s, remaining);
+  }
+
+  // Limit per-tick velocity change to the acceleration cap.
+  const float max_dv = accel * dt;
+  const float dv = clampf(desired_vel - v, -max_dv, +max_dv);
+  s_profile_vel = clampf(v + dv, -s_max_velocity_rad_s, +s_max_velocity_rad_s);
+  s_profile_pos += s_profile_vel * dt;
+}
+
 static void control_loop(const mc_stepper_command_t command) {
   float step_rate_target;
 
@@ -83,8 +135,16 @@ static void control_loop(const mc_stepper_command_t command) {
 
   case CONTROL_MODE_POSITION:
     controls_position_setpoint = command.setpoint;
-    controls_velocity_setpoint = pid_update(
-        &position_pid, controls_position_setpoint, controls_position_meas_rad);
+    // Plan the next profile point toward the setpoint.
+    profile_step(controls_position_setpoint);
+    // PID corrects deviation between planned and measured position. With a
+    // healthy stepper this term stays small handling step loss, encoder drift,
+    // and load disturbance.
+    const float correction =
+        pid_update(&position_pid, s_profile_pos, controls_position_meas_rad);
+    controls_velocity_setpoint =
+        clampf(s_profile_vel + correction, -s_max_velocity_rad_s,
+               +s_max_velocity_rad_s);
     step_rate_target = controls_velocity_setpoint * steps_per_rad;
     break;
 
@@ -134,6 +194,12 @@ void controls_set_accel_rad_s2(const float accel_rad_s2) {
   s_max_step_accel = accel_rad_s2 * steps_per_rad;
 }
 
+void controls_set_max_velocity_rad_s(const float v_max_rad_s) {
+  if (v_max_rad_s > 0.0f) {
+    s_max_velocity_rad_s = v_max_rad_s;
+  }
+}
+
 void controls_init(void) {
   // Calculate step size config.
   steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
@@ -141,14 +207,14 @@ void controls_init(void) {
 
   // Position.
   pid_init(&position_pid);
-  position_pid.k_p = 3.5f;
-  position_pid.k_i = 0.0f;
-  position_pid.integral_min = -2.5f;
-  position_pid.integral_max = 2.5f;
-  position_pid.k_d = 0.5f;
+  position_pid.k_p = 50.0f;
+  position_pid.k_i = 10.0f;
+  position_pid.integral_min = -25.0f;
+  position_pid.integral_max = 25.0f;
+  position_pid.k_d = 5.0f;
   position_pid.tau = 0.02f;
-  position_pid.output_min = -5.0f;
-  position_pid.output_max = 5.0f;
+  position_pid.output_min = -100.0f;
+  position_pid.output_max = 100.0f;
   position_pid.T = CONTROLS_PERIOD_S;
 
   // Reset position on target tick counter and latch variable.
@@ -181,9 +247,10 @@ void controls_redatum_shift(const float delta_rad) {
   if (control_command.mode == CONTROL_MODE_POSITION) {
     control_command.setpoint += delta_rad;
   }
-  // Shift prev_measurement by the same delta so the derivative path sees no
-  // discontinuity. pid_init() would zero prev_measurement and cause a kick on
-  // the next update.
+  // Keep the profile and PID derivative path in the new frame. Otherwise, the
+  // next tick would see the planned position and prev_measurement in the old
+  // frame and the measurement in the new one, kicking both terms.
+  s_profile_pos += delta_rad;
   position_pid.prev_measurement += delta_rad;
   __enable_irq();
 }
@@ -262,6 +329,10 @@ void controls_state_machine(void) {
       position_pid.prev_measurement = controls_position_meas_rad;
       prev_mode = cmd.mode;
     }
+
+    // Reset the trapezoidal profile to begin from the current measured position
+    // at rest. The new move plans from here.
+    profile_reset();
 
     controls_step_rate_command = 0.0f; // Safety.
 
