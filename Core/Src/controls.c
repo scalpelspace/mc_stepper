@@ -356,8 +356,12 @@ void controls_state_machine(void) {
   case CONTROLS_ON_POSITION_TARGET:
     command_snapshot(&cmd);
 
-    // Keep running the loop so the driver actively holds position.
-    control_loop(cmd);
+    // Stop emitting steps. The TMC2209 holds position via IHOLD current, and
+    // with no STEP edges the driver also relaxes to hold current after
+    // IHOLDDELAY. Re-engaging the loop on drift relies on the on-target
+    // hysteresis exit band.
+    controls_step_rate_command = 0.0f;
+    controls_velocity_setpoint = 0.0f;
 
     // If there is drift outside the exit band, resume normal execution.
     if (!on_position_target(cmd)) {

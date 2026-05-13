@@ -68,6 +68,38 @@ static void can_tx_absolute_angle(void) {
   can_send_message_raw32(&HCAN, &msg, sigs);
 }
 
+static void led_status_run(void) {
+  // Map controls_state to a status colour. Updates the LED only on state
+  // change to avoid hammering the WS2812B DMA path each tick. Dim values keep
+  // the on-board LED visible without being blinding at room lighting.
+  static controls_state_t last_state = CONTROLS_FAULT; // Force first update.
+  const controls_state_t state = controls_state;
+
+  if (state == last_state)
+    return;
+  last_state = state;
+
+  switch (state) {
+  case CONTROLS_START:
+    break;
+  case CONTROLS_EXECUTING:
+    ws2812b_set_colour(0, 3, 3, 0); // Yellow: actively moving.
+    break;
+  case CONTROLS_ON_POSITION_TARGET:
+    ws2812b_set_colour(0, 0, 5, 0); // Green: on target, holding.
+    break;
+  case CONTROLS_FAULT:
+    ws2812b_set_colour(0, 5, 0, 0); // Red: fault.
+    break;
+  case CONTROLS_IDLE:
+  case CONTROLS_DISABLE:
+  default:
+    ws2812b_set_colour(0, 2, 1, 3); // Idle: dim init colour.
+    break;
+  }
+  ws2812b_update();
+}
+
 static void sensors_run(void) {
   // Absolute angle sensor.
   as5047p_get_angle();
@@ -194,6 +226,7 @@ void mc_stepper_init(void) {
   scheduler_add_task(controls_run, CONTROLS_PERIOD_MS);
   scheduler_add_task(can_id_allocatee_state_machine, 20);
   scheduler_add_task(can_tx_controls_diag, 20);
+  scheduler_add_task(led_status_run, 100);
 }
 
 void mc_stepper_run(void) {
