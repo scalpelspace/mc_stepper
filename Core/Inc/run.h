@@ -11,6 +11,5 @@
 
 void mc_stepper_init(void);
 void mc_stepper_run(void);
-void position_request_zero(void);
 
 #endif

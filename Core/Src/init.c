@@ -184,8 +184,6 @@ static void controls_run(void) {
 
 /** Public functions. *********************************************************/
 
-void position_request_zero(void) { s_redatum_pending = true; }
-
 void mc_stepper_init(void) {
   // Low level peripherals.
   can_init();
