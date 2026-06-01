@@ -69,7 +69,7 @@ static void can_tx_absolute_angle(void) {
 }
 
 /**
- * @brief Drive the on-board WS2812B to reflect GNSS fix status.
+ * @brief Drive the on-board WS2812B to reflect stepper control status.
  */
 static void led_status_run(void) {
   // Map controls_state to a status colour. Updates the LED only on state
