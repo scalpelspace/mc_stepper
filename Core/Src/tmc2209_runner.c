@@ -163,8 +163,8 @@ HAL_StatusTypeDef tmc2209_step_set_freq_hz(const uint32_t f_step_hz) {
     g_dt_ticks = 0;
     __enable_irq();
     // Stop the channel interrupt generation first.
-    __HAL_TIM_DISABLE_IT(&TMC2209_HTIM, TIM_IT_CC1);   // Adjust CCx.
-    __HAL_TIM_CLEAR_FLAG(&TMC2209_HTIM, TIM_FLAG_CC1); // Adjust CCx flag.
+    __HAL_TIM_DISABLE_IT(&TMC2209_HTIM, TIM_IT_CC2);   // CH2 compare.
+    __HAL_TIM_CLEAR_FLAG(&TMC2209_HTIM, TIM_FLAG_CC2); // CH2 compare flag.
     return HAL_TIM_OC_Stop_IT(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL);
   }
 
@@ -175,18 +175,25 @@ HAL_StatusTypeDef tmc2209_step_set_freq_hz(const uint32_t f_step_hz) {
     dt = 65535u;
 
   __disable_irq();
+  // The OC channel runs in TOGGLE mode: the STEP pin toggles in hardware on
+  // each compare match and the OC ISR advances the compare by g_dt_ticks. This
+  // function is called every control tick to update the rate, so the next
+  // compare must NOT be re-seeded while already running. Doing so resets the
+  // accumulated toggle phase each tick and systematically drops a fraction of a
+  // step, which a closed loop hides via PID, but open-loop position cannot.
+  // Only seed the first compare when starting from a stopped state. While
+  // running the ISR adopts the new g_dt_ticks on its next edge.
+  const bool was_running = (g_dt_ticks != 0u);
   g_dt_ticks = (uint16_t)dt;
-
-  // Resync next compare from "now".
-  uint16_t now = (uint16_t)__HAL_TIM_GET_COUNTER(&TMC2209_HTIM);
-  __HAL_TIM_SET_COMPARE(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL,
-                        (uint16_t)(now + g_dt_ticks));
-
-  // Clear any stale pending CC flag before enabling.
-  __HAL_TIM_CLEAR_FLAG(&TMC2209_HTIM, TIM_FLAG_CC1); // Adjust flag.
+  if (!was_running) {
+    const uint16_t now = (uint16_t)__HAL_TIM_GET_COUNTER(&TMC2209_HTIM);
+    __HAL_TIM_SET_COMPARE(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL,
+                          (uint16_t)(now + g_dt_ticks));
+    __HAL_TIM_CLEAR_FLAG(&TMC2209_HTIM, TIM_FLAG_CC2); // Drop stale match.
+  }
   __enable_irq();
 
-  // Ensure running.
+  // Ensure running (idempotent if already started).
   return HAL_TIM_OC_Start_IT(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL);
 }
 
