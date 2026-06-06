@@ -233,5 +233,6 @@ void mc_stepper_init(void) {
   scheduler_add_task(controls_run, CONTROLS_PERIOD_MS);
   scheduler_add_task(can_id_allocatee_state_machine, 20);
   scheduler_add_task(can_tx_controls_diag, 20);
+  scheduler_add_task(can_stepper_reconfig_run, 20);
   scheduler_add_task(led_status_run, 100);
 }

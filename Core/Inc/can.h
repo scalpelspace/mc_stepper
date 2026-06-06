@@ -41,6 +41,17 @@ void can_init(void);
 void can_db_init(void);
 
 /**
+ * @brief Apply pending stepper reconfiguration requests from the main context.
+ *
+ * The command_stepper_current and command_stepper_motion CAN handlers run in
+ * interrupt context and only capture the request. This function performs the
+ * blocking TMC2209 register updates and controls recalibration, and must be
+ * polled from a scheduler task. No-op when nothing is pending or the driver is
+ * not disabled.
+ */
+void can_stepper_reconfig_run(void);
+
+/**
  * @brief Send uint32_t data CAN message on h_can_x with can_message_t
  * reference.
  *

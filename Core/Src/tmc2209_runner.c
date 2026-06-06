@@ -139,6 +139,24 @@ HAL_StatusTypeDef tmc2209_init(const tmc2209_configuration_t config) {
   return result;
 }
 
+HAL_StatusTypeDef tmc2209_set_currents(const uint16_t run_current_ma,
+                                       const uint8_t current_run,
+                                       const uint8_t current_hold,
+                                       const uint8_t current_hold_delay) {
+  // Recompute and apply the VREF DAC output for the run current.
+  const float dac_v = dac_voltage((float)run_current_ma, current_run);
+  const uint16_t dac_counts = dac_counts_from_voltage(dac_v);
+  HAL_DAC_SetValue(&TMC2209_VREF_DAC, TMC2209_VREF_DAC_CHANNEL, DAC_ALIGN_12B_R,
+                   dac_counts); // (12-bit right-aligned).
+
+  // Update IHOLD, IRUN, IHOLDDELAY.
+  return tmc2209_set_ihold_irun(current_hold, current_run, current_hold_delay);
+}
+
+HAL_StatusTypeDef tmc2209_set_step_size(const uint16_t step_size) {
+  return tmc2209_set_microsteps(step_size);
+}
+
 HAL_StatusTypeDef tmc2209_step_set_freq_hz(const uint32_t f_step_hz) {
   if (f_step_hz == 0) {
     __disable_irq();
