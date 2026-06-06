@@ -18,11 +18,6 @@
 #define CONTROLS_PERIOD_MS (1u)
 #define CONTROLS_PERIOD_S ((float)CONTROLS_PERIOD_MS / 1000.0f)
 
-// Max allowed step-rate acceleration (steps/s^2).
-#ifndef MAX_STEP_ACCEL_STEPS_S2
-#define MAX_STEP_ACCEL_STEPS_S2 (8000.0f)
-#endif
-
 // Controls on target constants.
 #define POSITION_TOLERANCE_ENTER_RAD (0.003f)
 #define POSITION_TOLERANCE_EXIT_RAD (0.015f)
