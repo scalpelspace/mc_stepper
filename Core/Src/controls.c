@@ -200,6 +200,21 @@ static bool on_position_target(const mc_stepper_command_t command) {
 
 /** Public functions. *********************************************************/
 
+bool controls_set_microsteps(const uint16_t microsteps) {
+  // TODO: Improve to allow adjustment of microstepping at standstill.
+  if (controls_state == CONTROLS_IDLE) {
+    microstep_config = microsteps;
+    steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
+                    (2.0f * (float)M_PI);
+    // Re-derive the steps/s^2 limit so the rad/s^2 envelope is preserved.
+    if (s_accel_rad_s2 > 0.0f) {
+      s_max_step_accel = s_accel_rad_s2 * steps_per_rad;
+    }
+    return true;
+  }
+  return false;
+}
+
 void controls_set_accel_rad_s2(const float accel_rad_s2) {
   // Convert rad/s^2 to steps/s^2 using the current steps_per_rad calibration.
   // steps_per_rad is valid after controls_init() or controls_set_microsteps().
@@ -242,21 +257,6 @@ void controls_init(void) {
   // Bring the FSM out of DISABLE so standstill-gated APIs (e.g. set_microsteps)
   // can run after init.
   controls_state = CONTROLS_IDLE;
-}
-
-bool controls_set_microsteps(const uint16_t microsteps) {
-  // TODO: Improve to allow adjustment of microstepping at standstill.
-  if (controls_state == CONTROLS_IDLE) {
-    microstep_config = microsteps;
-    steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
-                    (2.0f * (float)M_PI);
-    // Re-derive the steps/s^2 limit so the rad/s^2 envelope is preserved.
-    if (s_accel_rad_s2 > 0.0f) {
-      s_max_step_accel = s_accel_rad_s2 * steps_per_rad;
-    }
-    return true;
-  }
-  return false;
 }
 
 void controls_redatum_shift(const float delta_rad) {

@@ -62,8 +62,6 @@ extern volatile float controls_step_rate_command; // steps/s, control output.
 
 /** Public functions. *********************************************************/
 
-void controls_init(void);
-
 bool controls_set_microsteps(uint16_t microsteps);
 
 /**
@@ -86,6 +84,8 @@ void controls_set_accel_rad_s2(float accel_rad_s2);
  * @param v_max_rad_s Peak velocity in rad/s. Must be > 0.
  */
 void controls_set_max_velocity_rad_s(float v_max_rad_s);
+
+void controls_init(void);
 
 void controls_set_setpoint(mc_stepper_command_t command);
 
