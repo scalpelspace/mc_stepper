@@ -31,4 +31,12 @@
 #define MC_STEPPER_USE_ABSOLUTE_ENCODER 1 // Magnetic absolute encoder.
 #define MC_STEPPER_USE_RELATIVE_ENCODER 1 // ABI quadrature encoder.
 
+// TMC2209 default configuration.
+#define DEFAULT_STEP_SIZE (16u)
+#define DEFAULT_RUN_CURRENT_MA (300u)
+#define DEFAULT_CURRENT_HOLD (1u)
+#define DEFAULT_CURRENT_RUN (8u)
+#define DEFAULT_CURRENT_HOLD_DELAY (1u)
+#define DEFAULT_MAX_ACCELERATION_RAD_S2 (300.0f)
+
 #endif
