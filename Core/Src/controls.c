@@ -200,8 +200,8 @@ static bool on_position_target(const mc_stepper_command_t command) {
 /** Public functions. *********************************************************/
 
 bool controls_set_microsteps(const uint16_t microsteps) {
-  // TODO: Improve to allow adjustment of microstepping at standstill.
-  if (controls_state == CONTROLS_IDLE) {
+  // Only adjust microstepping at standstill (IDLE or DISABLE), never mid-move.
+  if (controls_state == CONTROLS_IDLE || controls_state == CONTROLS_DISABLE) {
     microstep_config = microsteps;
     steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
                     (2.0f * (float)M_PI);
