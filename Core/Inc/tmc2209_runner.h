@@ -51,6 +51,36 @@ void tmc2209_disable(void);
 HAL_StatusTypeDef tmc2209_init(tmc2209_configuration_t config);
 
 /**
+ * @brief Update the run/hold currents without a full re-init.
+ *
+ * Recomputes the VREF DAC output from run_current_ma and current_run, then
+ * writes IHOLD/IRUN/IHOLDDELAY. Used by the CAN current reconfiguration path.
+ *
+ * @param run_current_ma Target RMS run current in mA (drives the VREF DAC).
+ * @param current_run TMC2209 IRUN scaler [0,31].
+ * @param current_hold TMC2209 IHOLD scaler [0,31].
+ * @param current_hold_delay TMC2209 IHOLDDELAY [0,15].
+ *
+ * @returns HAL_StatusTypeDef status.
+ */
+HAL_StatusTypeDef tmc2209_set_currents(uint16_t run_current_ma,
+                                       uint8_t current_run,
+                                       uint8_t current_hold,
+                                       uint8_t current_hold_delay);
+
+/**
+ * @brief Update the driver microstep resolution without a full re-init.
+ *
+ * Driver-side counterpart to controls_set_microsteps(). Used by the CAN motion
+ * reconfiguration path.
+ *
+ * @param step_size Microstep setting [1,256].
+ *
+ * @returns HAL_StatusTypeDef status.
+ */
+HAL_StatusTypeDef tmc2209_set_step_size(uint16_t step_size);
+
+/**
  * @brief Set step frequency in steps/sec (updates compare interval).
  *
  * @param f_step_hz Target step frequency in hertz to set.

@@ -23,6 +23,20 @@ CAN_TxHeaderTypeDef tx_header;
 uint8_t tx_buffer[8];
 uint32_t tx_mailbox;
 
+// Deferred stepper reconfiguration. CAN RX handlers run in interrupt context,
+// but the TMC2209 register updates perform blocking UART transfers. Requests are
+// captured here and applied from the main context via can_stepper_reconfig_run().
+static volatile bool currents_pending = false;
+static uint16_t currents_run_ma;       // VREF DAC target current (mA).
+static uint8_t currents_run;           // IRUN scaler [0,31].
+static uint8_t currents_hold;          // IHOLD scaler [0,31].
+static uint8_t currents_hold_delay;    // IHOLDDELAY [0,15].
+
+static volatile bool motion_pending = false;
+static uint16_t motion_step_size;        // Microsteps [1,256].
+static float motion_max_accel_rad_s2;    // rad/s^2.
+static float motion_max_velocity_rad_s;  // rad/s.
+
 /** Public variables. *********************************************************/
 
 // Mutable runtime copy.
@@ -186,14 +200,62 @@ void can_rx_command_stepper_current(can_header_t *header, uint8_t *data) {
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_CURRENT];
 
   const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
-  const uint8_t update_current = (uint8_t)decode_signal(&msg->signals[1], data);
-  const uint8_t persist = (uint8_t)decode_signal(&msg->signals[2], data);
-  // &msg->signals[3] is reserved0.
-  const uint8_t run_ma = (uint8_t)decode_signal(&msg->signals[4], data);
-  const uint8_t hold_ma = (uint8_t)decode_signal(&msg->signals[5], data);
-  const uint8_t hold_delay = (uint8_t)decode_signal(&msg->signals[6], data);
+  const uint16_t run_current_ma =
+      (uint16_t)decode_signal(&msg->signals[1], data);
+  const uint8_t current_run = (uint8_t)decode_signal(&msg->signals[2], data);
+  const uint8_t current_hold = (uint8_t)decode_signal(&msg->signals[3], data);
+  const uint8_t current_hold_delay =
+      (uint8_t)decode_signal(&msg->signals[4], data);
 
-  // TODO(Daniel): Implement controls/re-init calls.
+  // Node ID filter, reject messages not explicitly referencing this node.
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
+    return;
+  }
+
+  // Safety: only reconfigure while the driver is disabled.
+  if (controls_state != CONTROLS_DISABLE) {
+    return;
+  }
+
+  // Capture the request; applied from the main context (see notes above).
+  currents_run_ma = run_current_ma;
+  currents_run = current_run;
+  currents_hold = current_hold;
+  currents_hold_delay = current_hold_delay;
+  currents_pending = true;
+}
+
+void can_rx_command_stepper_motion(can_header_t *header, uint8_t *data) {
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_MOTION];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
+  const uint16_t step_size = (uint16_t)decode_signal(&msg->signals[1], data);
+  const float max_acceleration_rad_s2 =
+      (float)decode_signal(&msg->signals[2], data);
+  const float max_velocity_rad_s = (float)decode_signal(&msg->signals[3], data);
+
+  // Node ID filter, reject messages not explicitly referencing this node.
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
+    return;
+  }
+
+  // Safety: only reconfigure while the driver is disabled. Changing the
+  // microstep resolution mid-move would glitch the step stream.
+  if (controls_state != CONTROLS_DISABLE) {
+    return;
+  }
+
+  // Reject an implausible microstep setting; zero would collapse steps_per_rad.
+  if (step_size == 0) {
+    return;
+  }
+
+  // Capture the request; applied from the main context (see notes above).
+  motion_step_size = step_size;
+  motion_max_accel_rad_s2 = max_acceleration_rad_s2;
+  motion_max_velocity_rad_s = max_velocity_rad_s;
+  motion_pending = true;
 }
 
 void can_rx_datetime_set(can_header_t *header, uint8_t *data) {
@@ -353,6 +415,8 @@ void can_db_init(void) {
       (can_rx_handler_t)can_rx_command_stepper;
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_CURRENT].rx_handler =
       (can_rx_handler_t)can_rx_command_stepper_current;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_MOTION].rx_handler =
+      (can_rx_handler_t)can_rx_command_stepper_motion;
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_SET].rx_handler =
       (can_rx_handler_t)can_rx_datetime_set;
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_GET].rx_handler =
@@ -363,6 +427,46 @@ void can_db_init(void) {
       (can_rx_handler_t)can_rx_controls_tune;
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_TUNE_GET].rx_handler =
       (can_rx_handler_t)can_rx_controls_tune_get;
+}
+
+void can_stepper_reconfig_run(void) {
+  // Currents: update VREF DAC and IHOLD/IRUN/IHOLDDELAY.
+  if (currents_pending) {
+    // Snapshot atomically against the RX interrupt, then clear the flag so a
+    // concurrent request is not lost mid-apply.
+    __disable_irq();
+    const uint16_t run_ma = currents_run_ma;
+    const uint8_t run = currents_run;
+    const uint8_t hold = currents_hold;
+    const uint8_t hold_delay = currents_hold_delay;
+    currents_pending = false;
+    __enable_irq();
+
+    // Re-check the safety gate; the driver may have been enabled since the
+    // request was queued.
+    if (controls_state == CONTROLS_DISABLE) {
+      tmc2209_set_currents(run_ma, run, hold, hold_delay);
+    }
+  }
+
+  // Motion: update microstep resolution and the controls motion envelope.
+  if (motion_pending) {
+    __disable_irq();
+    const uint16_t step_size = motion_step_size;
+    const float max_accel_rad_s2 = motion_max_accel_rad_s2;
+    const float max_velocity_rad_s = motion_max_velocity_rad_s;
+    motion_pending = false;
+    __enable_irq();
+
+    if (controls_state == CONTROLS_DISABLE) {
+      // controls_set_microsteps() updates steps_per_rad first; the accel set
+      // then re-derives the step-rate cap against the new calibration.
+      controls_set_microsteps(step_size);
+      controls_set_max_accel_rad_s2(max_accel_rad_s2);
+      controls_set_max_velocity_rad_s(max_velocity_rad_s);
+      tmc2209_set_step_size(step_size);
+    }
+  }
 }
 
 HAL_StatusTypeDef can_send_message_raw32(CAN_HandleTypeDef *h_can_x,
