@@ -133,6 +133,16 @@ static void control_loop(const mc_stepper_command_t command) {
     step_rate_target = controls_velocity_setpoint * steps_per_rad;
     break;
 
+  case CONTROL_MODE_POSITION_OPEN_LOOP:
+    controls_position_setpoint = command.setpoint;
+    // Open-loop: plan a trapezoidal trajectory toward the setpoint and command
+    // the planned velocity directly. The profile still bounds acceleration and
+    // peak velocity.
+    profile_step(controls_position_setpoint);
+    controls_velocity_setpoint = s_profile_vel;
+    step_rate_target = controls_velocity_setpoint * steps_per_rad;
+    break;
+
   case CONTROL_MODE_POSITION:
     controls_position_setpoint = command.setpoint;
     // Plan the next profile point toward the setpoint.
@@ -244,7 +254,8 @@ bool controls_set_microsteps(const uint16_t microsteps) {
 void controls_redatum_shift(const float delta_rad) {
   __disable_irq();
   controls_position_setpoint += delta_rad;
-  if (control_command.mode == CONTROL_MODE_POSITION) {
+  if (control_command.mode == CONTROL_MODE_POSITION ||
+      control_command.mode == CONTROL_MODE_POSITION_OPEN_LOOP) {
     control_command.setpoint += delta_rad;
   }
   // Keep the profile and PID derivative path in the new frame. Otherwise, the
