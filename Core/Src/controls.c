@@ -7,6 +7,7 @@
 /** Includes. *****************************************************************/
 
 #include "controls.h"
+#include "configuration.h"
 #include "pid.h"
 #include "stm32l4xx.h"
 #include <math.h>
@@ -33,10 +34,12 @@ static uint16_t full_steps_per_rev = 200;
 static uint16_t microstep_config = 16;
 static float steps_per_rad;
 
-// Runtime acceleration limit (steps/s^2). Defaults to the compile-time value.
-// Overridden via controls_set_accel_rad_s2() once steps_per_rad is known.
-static float s_max_step_accel = MAX_STEP_ACCEL_STEPS_S2;
-static float s_accel_rad_s2 = 0.0f; // Cached rad/s^2 for microstep rescale.
+// Runtime acceleration limit. Seeded from the configured default (rad/s^2),
+// shared with the TMC2209 config, and converted to the steps/s^2 slew cap in
+// controls_init() once steps_per_rad is known. Overridden at runtime via
+// controls_set_accel_rad_s2().
+static float s_max_step_accel = 0.0f; // steps/s^2 slew cap, set in init.
+static float s_accel_rad_s2 = DEFAULT_MAX_ACCELERATION_RAD_S2; // rad/s^2.
 
 static uint16_t on_target_ticks = 0;   // Position on-target latch count.
 static bool latched_on_target = false; // Position on-target latching check.
@@ -214,6 +217,11 @@ void controls_init(void) {
   // Calculate step size config.
   steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
                   (2.0f * (float)M_PI);
+
+  // Seed the steps/s^2 slew cap from the configured rad/s^2 default now that
+  // steps_per_rad is known. Delegates to keep the rad/s^2 -> steps/s^2
+  // conversion in a single place.
+  controls_set_accel_rad_s2(s_accel_rad_s2);
 
   // Position.
   pid_init(&position_pid);
