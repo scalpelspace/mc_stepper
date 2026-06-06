@@ -26,6 +26,10 @@
 #define ON_TARGET_DWELL_TICKS                                                  \
   ((ON_TARGET_DWELL_MS + CONTROLS_PERIOD_MS - 1u) / CONTROLS_PERIOD_MS)
 
+// Open-loop on-target: with no encoder feedback to verify against, a move is
+// considered settled once the planned profile velocity falls below this value.
+#define OPEN_LOOP_ON_TARGET_VEL_EPS_RAD_S (0.05f)
+
 /** Public types. *************************************************************/
 
 typedef enum {
@@ -89,6 +93,16 @@ void controls_set_max_velocity_rad_s(float max_velocity_rad_s);
 void controls_init(void);
 
 void controls_set_setpoint(mc_stepper_command_t command);
+
+/**
+ * @brief Read back the active control mode.
+ *
+ * Reflects the mode of the command currently being executed (POSITION_RELATIVE
+ * is resolved to POSITION once a move starts). Safe to call from any context.
+ *
+ * @return Active control_mode_t.
+ */
+control_mode_t controls_get_mode(void);
 
 /**
  * @brief Live-tune the position PID gains.
