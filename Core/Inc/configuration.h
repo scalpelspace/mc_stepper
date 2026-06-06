@@ -31,7 +31,4 @@
 #define MC_STEPPER_USE_ABSOLUTE_ENCODER 1 // Magnetic absolute encoder.
 #define MC_STEPPER_USE_RELATIVE_ENCODER 1 // ABI quadrature encoder.
 
-// Unwrap threshold. Delta beyond half a revolution is treated as a wrap event.
-#define MC_STEPPER_ANGLE_WRAP_THRESHOLD ((float)M_PI)
-
 #endif
