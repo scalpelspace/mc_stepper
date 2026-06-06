@@ -155,6 +155,15 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
     break;
   }
 
+  case CONTROL_MODE_POSITION_OPEN_LOOP: {
+    const mc_stepper_command_t cmd = {
+        .mode = CONTROL_MODE_POSITION_OPEN_LOOP,
+        .setpoint = target_position_rad,
+    };
+    controls_set_setpoint(cmd);
+    break;
+  }
+
   case CONTROL_MODE_NONE: {
     // Explicit stop: command zero velocity so the control loop decelerates
     // cleanly via the slew filter, rather than cutting steps abruptly.
