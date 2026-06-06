@@ -82,14 +82,28 @@ static void led_status_run(void) {
     return;
   last_state = state;
 
+  // Open-loop position runs without encoder feedback, so its "moving" and
+  // "holding" indications are kept distinct from the encoder-verified yellow/
+  // green of closed-loop control.
+  const bool open_loop =
+      (controls_get_mode() == CONTROL_MODE_POSITION_OPEN_LOOP);
+
   switch (state) {
   case CONTROLS_START:
     break;
   case CONTROLS_EXECUTING:
-    ws2812b_set_colour(0, 3, 3, 0); // Yellow: actively moving.
+    if (open_loop) {
+      ws2812b_set_colour(0, 1, 4, 2); // Cyan: open-loop moving.
+    } else {
+      ws2812b_set_colour(0, 3, 3, 0); // Yellow: actively moving.
+    }
     break;
   case CONTROLS_ON_POSITION_TARGET:
-    ws2812b_set_colour(0, 0, 5, 0); // Green: on target, holding.
+    if (open_loop) {
+      ws2812b_set_colour(0, 0, 1, 4); // Blue: open-loop holding.
+    } else {
+      ws2812b_set_colour(0, 0, 5, 0); // Green: on target, holding.
+    }
     break;
   case CONTROLS_FAULT:
     ws2812b_set_colour(0, 5, 0, 0); // Red: fault.

@@ -170,6 +170,16 @@ static void control_loop(const mc_stepper_command_t command) {
 }
 
 static bool on_position_target(const mc_stepper_command_t command) {
+  // Open-loop: there is no encoder feedback to verify against, so the move is
+  // "on target" once the planned profile has reached the setpoint and stopped.
+  // The profile is frozen on entry to CONTROLS_ON_POSITION_TARGET, so this
+  // stays latched until a new setpoint restarts the profile.
+  if (command.mode == CONTROL_MODE_POSITION_OPEN_LOOP) {
+    return (fabsf(command.setpoint - s_profile_pos) <=
+            POSITION_TOLERANCE_ENTER_RAD) &&
+           (fabsf(s_profile_vel) <= OPEN_LOOP_ON_TARGET_VEL_EPS_RAD_S);
+  }
+
   // Only meaningful for position moves.
   if (command.mode != CONTROL_MODE_POSITION)
     return false;
@@ -293,6 +303,13 @@ void controls_get_gains(float *k_p, float *k_i, float *k_d) {
     *k_i = i;
   if (k_d)
     *k_d = d;
+}
+
+control_mode_t controls_get_mode(void) {
+  __disable_irq();
+  const control_mode_t mode = control_command.mode;
+  __enable_irq();
+  return mode;
 }
 
 void controls_set_setpoint(const mc_stepper_command_t command) {
