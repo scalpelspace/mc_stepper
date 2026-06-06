@@ -71,19 +71,20 @@ bool controls_set_microsteps(uint16_t microsteps);
  * limit used by the slew-rate filter. Call after controls_init() and
  * whenever microstep configuration changes.
  *
- * @param accel_rad_s2 Desired acceleration limit in rad/s^2.
+ * @param max_accel_rad_s2 Desired acceleration limit in rad/s^2.
  */
-void controls_set_accel_rad_s2(float accel_rad_s2);
+void controls_set_max_accel_rad_s2(float max_accel_rad_s2);
 
 /**
  * @brief Set the trapezoidal motion profile peak velocity.
  *
  * Sets the maximum velocity used by the motion profile generator for position
- * moves. Pair with controls_set_accel_rad_s2() to shape the full trapezoid.
+ * moves. Call after controls_init() and whenever microstep configuration
+ * changes.
  *
- * @param v_max_rad_s Peak velocity in rad/s. Must be > 0.
+ * @param max_velocity_rad_s Peak velocity in rad/s. Must be > 0.
  */
-void controls_set_max_velocity_rad_s(float v_max_rad_s);
+void controls_set_max_velocity_rad_s(float max_velocity_rad_s);
 
 void controls_init(void);
 

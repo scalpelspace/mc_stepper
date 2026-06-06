@@ -39,4 +39,7 @@
 #define DEFAULT_CURRENT_HOLD_DELAY (1u)
 #define DEFAULT_MAX_ACCELERATION_RAD_S2 (300.0f)
 
+// Controls default configuration.
+#define DEFAULT_MAX_VELOCITY_RAD_S (5.0f)
+
 #endif

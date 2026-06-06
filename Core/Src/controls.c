@@ -36,21 +36,20 @@ static float steps_per_rad;
 
 // Runtime acceleration limit. Seeded from the configured default (rad/s^2),
 // shared with the TMC2209 config, and converted to the steps/s^2 slew cap in
-// controls_init() once steps_per_rad is known. Overridden at runtime via
-// controls_set_accel_rad_s2().
-static float s_max_step_accel = 0.0f; // steps/s^2 slew cap, set in init.
-static float s_accel_rad_s2 = DEFAULT_MAX_ACCELERATION_RAD_S2; // rad/s^2.
+// controls_init() once steps_per_rad is known.
+static float s_max_accel_rad_s2 = DEFAULT_MAX_ACCELERATION_RAD_S2; // rad/s^2.
+static float s_max_accel_step = 0.0f; // steps/s^2 slew cap, set in init.
 
 static uint16_t on_target_ticks = 0;   // Position on-target latch count.
 static bool latched_on_target = false; // Position on-target latching check.
 
 // Trapezoidal motion profile state. The profile plans a feasible position and
-// velocity trajectory toward the setpoint that respects s_accel_rad_s2 and
+// velocity trajectory toward the setpoint that respects s_max_accel_rad_s2 and
 // s_max_velocity_rad_s. PID then corrects deviation between profile and
 // measured position, so the loop never has to bang-bang against motor limits.
-static float s_profile_pos = 0.0f;        // Planned position (rad).
-static float s_profile_vel = 0.0f;        // Planned velocity (rad/s).
-static float s_max_velocity_rad_s = 5.0f; // Profile peak velocity.
+static float s_max_velocity_rad_s = DEFAULT_MAX_VELOCITY_RAD_S; // Profile max.
+static float s_profile_pos = 0.0f; // Planned position (rad).
+static float s_profile_vel = 0.0f; // Planned velocity (rad/s).
 
 /** Private snapshot functions. ***********************************************/
 
@@ -75,7 +74,7 @@ static float clampf(const float x, const float lo, const float hi) {
  */
 static float step_rate_slew_limit(const float target) {
   const float max_delta =
-      s_max_step_accel * CONTROLS_PERIOD_S; // steps/s per tick.
+      s_max_accel_step * CONTROLS_PERIOD_S; // steps/s per tick.
   const float delta =
       clampf(target - controls_step_rate_command, -max_delta, +max_delta);
   return controls_step_rate_command + delta;
@@ -102,7 +101,7 @@ static void profile_reset(void) {
  * @param target Target position (rad).
  */
 static void profile_step(const float target) {
-  const float accel = (s_accel_rad_s2 > 0.0f) ? s_accel_rad_s2 : 100.0f;
+  const float accel = (s_max_accel_rad_s2 > 0.0f) ? s_max_accel_rad_s2 : 100.0f;
   const float dt = CONTROLS_PERIOD_S;
   const float remaining = target - s_profile_pos;
   const float v = s_profile_vel;
@@ -207,24 +206,24 @@ bool controls_set_microsteps(const uint16_t microsteps) {
     steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
                     (2.0f * (float)M_PI);
     // Re-derive the steps/s^2 limit so the rad/s^2 envelope is preserved.
-    if (s_accel_rad_s2 > 0.0f) {
-      s_max_step_accel = s_accel_rad_s2 * steps_per_rad;
+    if (s_max_accel_rad_s2 > 0.0f) {
+      s_max_accel_step = s_max_accel_rad_s2 * steps_per_rad;
     }
     return true;
   }
   return false;
 }
 
-void controls_set_accel_rad_s2(const float accel_rad_s2) {
+void controls_set_max_accel_rad_s2(const float max_accel_rad_s2) {
   // Convert rad/s^2 to steps/s^2 using the current steps_per_rad calibration.
   // steps_per_rad is valid after controls_init() or controls_set_microsteps().
-  s_accel_rad_s2 = accel_rad_s2;
-  s_max_step_accel = accel_rad_s2 * steps_per_rad;
+  s_max_accel_rad_s2 = max_accel_rad_s2;
+  s_max_accel_step = max_accel_rad_s2 * steps_per_rad;
 }
 
-void controls_set_max_velocity_rad_s(const float v_max_rad_s) {
-  if (v_max_rad_s > 0.0f) {
-    s_max_velocity_rad_s = v_max_rad_s;
+void controls_set_max_velocity_rad_s(const float max_velocity_rad_s) {
+  if (max_velocity_rad_s > 0.0f) {
+    s_max_velocity_rad_s = max_velocity_rad_s;
   }
 }
 
@@ -236,7 +235,7 @@ void controls_init(void) {
   // Seed the steps/s^2 slew cap from the configured rad/s^2 default now that
   // steps_per_rad is known. Delegates to keep the rad/s^2 -> steps/s^2
   // conversion in a single place.
-  controls_set_accel_rad_s2(s_accel_rad_s2);
+  controls_set_max_accel_rad_s2(s_max_accel_rad_s2);
 
   // Position.
   pid_init(&position_pid);
