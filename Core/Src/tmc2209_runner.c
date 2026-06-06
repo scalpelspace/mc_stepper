@@ -128,7 +128,7 @@ HAL_StatusTypeDef tmc2209_init(const tmc2209_configuration_t config) {
   // Apply acceleration limit from config into the controls slew filter.
   // controls_init() must have been called before tmc2209_init().
   if (config.max_acceleration_rad_s2 > 0.0f) {
-    controls_set_accel_rad_s2(config.max_acceleration_rad_s2);
+    controls_set_max_accel_rad_s2(config.max_acceleration_rad_s2);
   }
 
   if (config.enable) {
