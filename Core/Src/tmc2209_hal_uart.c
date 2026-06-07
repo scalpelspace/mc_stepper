@@ -23,6 +23,9 @@
 #define TMC2209_REG_IHOLD_IRUN (0x10)
 #define TMC2209_REG_TPOWERDOWN (0x11)
 #define TMC2209_REG_TSTEP (0x12)
+#define TMC2209_REG_TCOOLTHRS (0x14)
+#define TMC2209_REG_SGTHRS (0x40)
+#define TMC2209_REG_SG_RESULT (0x41)
 #define TMC2209_REG_CHOPCONF (0x6C)
 #define TMC2209_REG_DRV_STATUS (0x6F)
 #define TMC2209_REG_PWMCONF (0x70)
@@ -202,6 +205,24 @@ HAL_StatusTypeDef tmc2209_set_ihold_irun(const uint8_t ihold,
 HAL_StatusTypeDef tmc2209_set_tpowerdown(const uint8_t tpowerdown) {
   const uint32_t v = tpowerdown & 0xFFu;
   return tmc2209_write_reg(TMC2209_REG_TPOWERDOWN, v);
+}
+
+HAL_StatusTypeDef tmc2209_set_tcoolthrs(const uint32_t tcoolthrs) {
+  return tmc2209_write_reg(TMC2209_REG_TCOOLTHRS, tcoolthrs & 0x000FFFFFu);
+}
+
+HAL_StatusTypeDef tmc2209_set_sgthrs(const uint8_t sgthrs) {
+  return tmc2209_write_reg(TMC2209_REG_SGTHRS, (uint32_t)sgthrs);
+}
+
+HAL_StatusTypeDef tmc2209_get_sg_result(uint16_t *const out) {
+  uint32_t v = 0;
+  const HAL_StatusTypeDef st = tmc2209_read_reg(TMC2209_REG_SG_RESULT, &v);
+  if (st != HAL_OK)
+    return st;
+  if (out)
+    *out = (uint16_t)(v & 0x03FFu); // SG_RESULT is 10-bit.
+  return HAL_OK;
 }
 
 HAL_StatusTypeDef tmc2209_set_current_sense(const bool use_internal_rsense,

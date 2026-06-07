@@ -53,4 +53,41 @@ HAL_StatusTypeDef tmc2209_set_tpowerdown(uint8_t tpowerdown);
 HAL_StatusTypeDef tmc2209_set_current_sense(bool use_internal_rsense,
                                             bool vsense_low_018v);
 
+/**
+ * @brief Set the StallGuard threshold (SGTHRS register).
+ *
+ * A stall is indicated when SG_RESULT falls to or below 2*sgthrs. Higher values
+ * make stall detection more sensitive (trips at lighter loads).
+ *
+ * @param sgthrs StallGuard threshold [0,255].
+ *
+ * @returns HAL_StatusTypeDef status.
+ */
+HAL_StatusTypeDef tmc2209_set_sgthrs(uint8_t sgthrs);
+
+/**
+ * @brief Set the lower velocity threshold for StallGuard/CoolStep (TCOOLTHRS).
+ *
+ * StallGuard is only valid while TSTEP <= TCOOLTHRS (i.e. above the
+ * corresponding velocity). A large value keeps it active across the operating
+ * range; 0 disables it.
+ *
+ * @param tcoolthrs 20-bit TSTEP threshold.
+ *
+ * @returns HAL_StatusTypeDef status.
+ */
+HAL_StatusTypeDef tmc2209_set_tcoolthrs(uint32_t tcoolthrs);
+
+/**
+ * @brief Read the StallGuard load result (SG_RESULT register).
+ *
+ * Lower values indicate higher mechanical load; meaningful only while the motor
+ * is running above the TCOOLTHRS velocity.
+ *
+ * @param out Output 10-bit load result [0,1023]. Non-null.
+ *
+ * @returns HAL_StatusTypeDef status.
+ */
+HAL_StatusTypeDef tmc2209_get_sg_result(uint16_t *out);
+
 #endif
