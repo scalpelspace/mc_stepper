@@ -27,17 +27,40 @@
 
 volatile uint16_t g_dt_ticks; // Time space between successive step signals.
 
+// Exact step-count budget for open-loop moves. The channel runs in TOGGLE mode,
+// so the STEP pin flips once per compare match and 2 toggles == 1 microstep.
+// When g_step_bounded is set, the ISR counts toggles down and stops the channel
+// at zero so the emitted microstep count is exact regardless of timing. Speed
+// and closed-loop position run unbounded.
+static volatile bool g_step_bounded = false;
+static volatile uint32_t g_toggles_remaining = 0;
+
 /** User implementations into STM32 HAL (overwrite weak HAL functions). *******/
 
 void HAL_TIM_OC_DelayElapsedCallback_tmc2209(TIM_HandleTypeDef *htim) {
-  if (htim == &TMC2209_HTIM) {
-    if (g_dt_ticks == 0)
-      return; // Don't reschedule.
+  if (htim != &TMC2209_HTIM)
+    return;
+  if (g_dt_ticks == 0)
+    return; // Stopped; don't reschedule.
 
-    const uint16_t ccr = __HAL_TIM_GET_COMPARE(htim, TMC2209_HTIM_CHANNEL);
-    __HAL_TIM_SET_COMPARE(htim, TMC2209_HTIM_CHANNEL,
-                          (uint16_t)(ccr + g_dt_ticks));
+  // Bounded (open-loop) moves emit an exact number of toggles. The hardware has
+  // already toggled the pin for this match; account for it and stop scheduling
+  // once the budget is spent so no extra steps leak out.
+  if (g_step_bounded) {
+    if (g_toggles_remaining != 0u)
+      g_toggles_remaining--;
+    if (g_toggles_remaining == 0u) {
+      g_dt_ticks = 0;
+      __HAL_TIM_DISABLE_IT(htim, TIM_IT_CC2);
+      // The control loop issues a full channel stop within the next tick; the
+      // stale compare cannot re-match before then (counter wrap is ~65 ms).
+      return;
+    }
   }
+
+  const uint16_t ccr = __HAL_TIM_GET_COMPARE(htim, TMC2209_HTIM_CHANNEL);
+  __HAL_TIM_SET_COMPARE(htim, TMC2209_HTIM_CHANNEL,
+                        (uint16_t)(ccr + g_dt_ticks));
 }
 
 /** Private functions. ********************************************************/
@@ -195,6 +218,28 @@ HAL_StatusTypeDef tmc2209_step_set_freq_hz(const uint32_t f_step_hz) {
 
   // Ensure running (idempotent if already started).
   return HAL_TIM_OC_Start_IT(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL);
+}
+
+void tmc2209_step_load_count(const uint32_t microsteps) {
+  __disable_irq();
+  g_toggles_remaining = microsteps * 2u; // 2 toggles per microstep.
+  g_step_bounded = true;
+  __enable_irq();
+}
+
+void tmc2209_step_clear_count(void) {
+  __disable_irq();
+  g_step_bounded = false;
+  g_toggles_remaining = 0u;
+  __enable_irq();
+}
+
+uint32_t tmc2209_step_remaining(void) {
+  __disable_irq();
+  const bool bounded = g_step_bounded;
+  const uint32_t toggles = g_toggles_remaining;
+  __enable_irq();
+  return bounded ? ((toggles + 1u) / 2u) : 0u;
 }
 
 HAL_StatusTypeDef tmc2209_step_direction(const bool forward) {

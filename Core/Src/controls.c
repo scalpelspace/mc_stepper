@@ -10,6 +10,7 @@
 #include "configuration.h"
 #include "pid.h"
 #include "stm32l4xx.h"
+#include "tmc2209_runner.h"
 #include <math.h>
 
 /** Public variables. *********************************************************/
@@ -50,6 +51,14 @@ static bool latched_on_target = false; // Position on-target latching check.
 static float s_max_velocity_rad_s = DEFAULT_MAX_VELOCITY_RAD_S; // Profile max.
 static float s_profile_pos = 0.0f; // Planned position (rad).
 static float s_profile_vel = 0.0f; // Planned velocity (rad/s).
+
+// True open-loop state. The commanded position lives in an internal,
+// encoder-independent frame measured in microsteps (starts at 0). Each move
+// emits an exact microstep budget (driver-counted). s_ol_step_vel is the
+// step-domain rate ramp and s_ol_dir the fixed move direction.
+static int32_t s_ol_pos_steps = 0; // Open-loop commanded position (microsteps).
+static bool s_ol_dir = true;       // Move direction (true = forward).
+static float s_ol_step_vel = 0.0f; // Step-domain rate (steps/s).
 
 /** Private snapshot functions. ***********************************************/
 
@@ -135,15 +144,34 @@ static void control_loop(const mc_stepper_command_t command) {
     step_rate_target = controls_velocity_setpoint * steps_per_rad;
     break;
 
-  case CONTROL_MODE_POSITION_OPEN_LOOP:
+  case CONTROL_MODE_POSITION_OPEN_LOOP: {
+    // True open-loop: the exact microstep budget was loaded in CONTROLS_START
+    // and is counted down by the driver. Here we only shape the rate with a
+    // step-domain trapezoid. Decelerate so the rate reaches ~0 as the remaining
+    // count does, while the driver guarantees the final count regardless of
+    // loop timing.
     controls_position_setpoint = command.setpoint;
-    // Open-loop: plan a trapezoidal trajectory toward the setpoint and command
-    // the planned velocity directly. The profile still bounds acceleration and
-    // peak velocity.
-    profile_step(controls_position_setpoint);
-    controls_velocity_setpoint = s_profile_vel;
-    step_rate_target = controls_velocity_setpoint * steps_per_rad;
-    break;
+    const uint32_t remaining = tmc2209_step_remaining();
+    if (remaining == 0u) {
+      s_ol_step_vel = 0.0f;
+      controls_velocity_setpoint = 0.0f;
+      controls_step_rate_command = 0.0f;
+      return;
+    }
+    const float a = (s_max_accel_step > 0.0f) ? s_max_accel_step : 1000.0f;
+    const float v_max = s_max_velocity_rad_s * steps_per_rad;
+    const float brake = (s_ol_step_vel * s_ol_step_vel) / (2.0f * a);
+    const float target_v = ((float)remaining <= brake)
+                               ? sqrtf(2.0f * a * (float)remaining)
+                               : v_max;
+    const float max_dv = a * CONTROLS_PERIOD_S;
+    const float dv = clampf(target_v - s_ol_step_vel, -max_dv, +max_dv);
+    s_ol_step_vel = clampf(s_ol_step_vel + dv, 0.0f, v_max);
+    const float signed_rate = s_ol_dir ? s_ol_step_vel : -s_ol_step_vel;
+    controls_velocity_setpoint = signed_rate / steps_per_rad; // rad/s (diag).
+    controls_step_rate_command = signed_rate;                 // steps/s output.
+    return; // Bypass the slew limiter; the ramp above already bounds accel.
+  }
 
   case CONTROL_MODE_POSITION:
     controls_position_setpoint = command.setpoint;
@@ -170,14 +198,10 @@ static void control_loop(const mc_stepper_command_t command) {
 }
 
 static bool on_position_target(const mc_stepper_command_t command) {
-  // Open-loop: there is no encoder feedback to verify against, so the move is
-  // "on target" once the planned profile has reached the setpoint and stopped.
-  // The profile is frozen on entry to CONTROLS_ON_POSITION_TARGET, so this
-  // stays latched until a new setpoint restarts the profile.
+  // Open-loop: the move is complete once the exact microstep budget has been
+  // emitted by the driver. No encoder is consulted.
   if (command.mode == CONTROL_MODE_POSITION_OPEN_LOOP) {
-    return (fabsf(command.setpoint - s_profile_pos) <=
-            POSITION_TOLERANCE_ENTER_RAD) &&
-           (fabsf(s_profile_vel) <= OPEN_LOOP_ON_TARGET_VEL_EPS_RAD_S);
+    return (tmc2209_step_remaining() == 0u);
   }
 
   // Only meaningful for position moves.
@@ -212,12 +236,19 @@ static bool on_position_target(const mc_stepper_command_t command) {
 bool controls_set_microsteps(const uint16_t microsteps) {
   // Only adjust microstepping at standstill (IDLE or DISABLE), never mid-move.
   if (controls_state == CONTROLS_IDLE || controls_state == CONTROLS_DISABLE) {
+    const float old_steps_per_rad = steps_per_rad;
     microstep_config = microsteps;
     steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
                     (2.0f * (float)M_PI);
     // Re-derive the steps/s^2 limit so the rad/s^2 envelope is preserved.
     if (s_max_accel_rad_s2 > 0.0f) {
       s_max_accel_step = s_max_accel_rad_s2 * steps_per_rad;
+    }
+    // Rescale the internal open-loop position so it keeps the same rad value
+    // across a microstep change.
+    if (old_steps_per_rad > 0.0f) {
+      s_ol_pos_steps = (int32_t)lroundf((float)s_ol_pos_steps *
+                                        (steps_per_rad / old_steps_per_rad));
     }
     return true;
   }
@@ -263,6 +294,11 @@ void controls_init(void) {
   on_target_ticks = 0;
   latched_on_target = false;
 
+  // Reset the internal open-loop frame.
+  s_ol_pos_steps = 0;
+  s_ol_step_vel = 0.0f;
+  s_ol_dir = true;
+
   // Bring the FSM out of DISABLE so standstill-gated APIs (e.g. set_microsteps)
   // can run after init.
   controls_state = CONTROLS_IDLE;
@@ -271,8 +307,7 @@ void controls_init(void) {
 void controls_redatum_shift(const float delta_rad) {
   __disable_irq();
   controls_position_setpoint += delta_rad;
-  if (control_command.mode == CONTROL_MODE_POSITION ||
-      control_command.mode == CONTROL_MODE_POSITION_OPEN_LOOP) {
+  if (control_command.mode == CONTROL_MODE_POSITION) {
     control_command.setpoint += delta_rad;
   }
   // Keep the profile and PID derivative path in the new frame. Otherwise, the
@@ -357,17 +392,38 @@ void controls_state_machine(void) {
       control_command = cmd;            // Persist resolved absolute target.
     }
 
-    if (cmd.mode != prev_mode) {
-      pid_init(&position_pid); // Reset, gains uneffected by init.
-      // Seed prev_measurement so the first derivative tick does not see a
-      // (measurement - 0) jump and saturate the output.
-      position_pid.prev_measurement = controls_position_meas_rad;
+    if (cmd.mode == CONTROL_MODE_POSITION_OPEN_LOOP) {
+      // True open-loop: plan an exact microstep budget toward the target in the
+      // internal (encoder-independent) frame. Account for any steps still
+      // pending from a preempted move so the new budget starts from the actual
+      // commanded position. The driver emits exactly this many steps.
+      const uint32_t pending = tmc2209_step_remaining();
+      const int32_t current_steps =
+          s_ol_pos_steps - (s_ol_dir ? (int32_t)pending : -(int32_t)pending);
+      const int32_t target_steps =
+          (int32_t)lroundf(cmd.setpoint * steps_per_rad);
+      const int32_t delta = target_steps - current_steps;
+      s_ol_dir = (delta >= 0);
+      tmc2209_step_load_count((uint32_t)(delta >= 0 ? delta : -delta));
+      s_ol_pos_steps = target_steps;
+      s_ol_step_vel = 0.0f;
       prev_mode = cmd.mode;
-    }
+    } else {
+      // Speed/closed-loop position are rate-controlled and run unbounded.
+      tmc2209_step_clear_count();
 
-    // Reset the trapezoidal profile to begin from the current measured position
-    // at rest. The new move plans from here.
-    profile_reset();
+      if (cmd.mode != prev_mode) {
+        pid_init(&position_pid); // Reset, gains uneffected by init.
+        // Seed prev_measurement so the first derivative tick does not see a
+        // (measurement - 0) jump and saturate the output.
+        position_pid.prev_measurement = controls_position_meas_rad;
+        prev_mode = cmd.mode;
+      }
+
+      // Reset the trapezoidal profile to begin from the current measured
+      // position at rest. The new move plans from here.
+      profile_reset();
+    }
 
     controls_step_rate_command = 0.0f; // Safety.
 
