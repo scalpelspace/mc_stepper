@@ -90,6 +90,33 @@ HAL_StatusTypeDef tmc2209_set_step_size(uint16_t step_size);
 HAL_StatusTypeDef tmc2209_step_set_freq_hz(uint32_t f_step_hz);
 
 /**
+ * @brief Arm an exact microstep budget for the step generator.
+ *
+ * After this call the generator emits at most @p microsteps STEP pulses and
+ * then stops itself, independent of how long the commanded frequency is left
+ * running. Pair the rate updates via tmc2209_step_set_freq_hz() with the budget
+ * loaded here.
+ *
+ * @param microsteps Number of STEP pulses to emit before stopping.
+ */
+void tmc2209_step_load_count(uint32_t microsteps);
+
+/**
+ * @brief Remove the step budget; the generator free-runs at the set frequency.
+ *
+ * Used for speed and closed-loop position modes, which are rate-controlled and
+ * must not self-terminate by count.
+ */
+void tmc2209_step_clear_count(void);
+
+/**
+ * @brief Microsteps still pending in the active budget.
+ *
+ * @returns Remaining microsteps budget, 0 for unbounded or move complete.
+ */
+uint32_t tmc2209_step_remaining(void);
+
+/**
  * @brief Set step direction.
  *
  * @param forward True for forward (low), false for backwards (high).
