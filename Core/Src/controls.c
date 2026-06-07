@@ -268,6 +268,12 @@ void controls_set_max_velocity_rad_s(const float max_velocity_rad_s) {
   }
 }
 
+uint16_t controls_get_microsteps(void) { return microstep_config; }
+
+float controls_get_max_accel_rad_s2(void) { return s_max_accel_rad_s2; }
+
+float controls_get_max_velocity_rad_s(void) { return s_max_velocity_rad_s; }
+
 void controls_init(void) {
   // Calculate step size config.
   steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /

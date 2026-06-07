@@ -86,6 +86,27 @@ void controls_set_max_accel_rad_s2(float max_accel_rad_s2);
  */
 void controls_set_max_velocity_rad_s(float max_velocity_rad_s);
 
+/**
+ * @brief Read back the active microstep resolution.
+ *
+ * @return Microsteps per full step.
+ */
+uint16_t controls_get_microsteps(void);
+
+/**
+ * @brief Read back the motion acceleration limit.
+ *
+ * @return Acceleration limit in rad/s^2.
+ */
+float controls_get_max_accel_rad_s2(void);
+
+/**
+ * @brief Read back the motion profile peak velocity.
+ *
+ * @return Peak velocity in rad/s.
+ */
+float controls_get_max_velocity_rad_s(void);
+
 void controls_init(void);
 
 void controls_set_setpoint(mc_stepper_command_t command);
