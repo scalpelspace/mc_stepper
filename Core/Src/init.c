@@ -56,7 +56,7 @@ static void can_tx_controls_diag(void) {
   can_send_message_raw32(&HCAN, &msg, sigs);
 }
 
-static void can_tx_absolute_angle(void) {
+static void can_tx_absolute_encoder(void) {
   const can_message_t msg =
       mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_ABSOLUTE_ENCODER];
   uint32_t sigs[3] = {0};
@@ -66,6 +66,32 @@ static void can_tx_absolute_angle(void) {
     sigs[i] = physical_to_raw(source_sigs[i], &msg.signals[i]);
   }
   can_send_message_raw32(&HCAN, &msg, sigs);
+}
+
+static void can_tx_stallguard_event(void) {
+  bool enable, stalled;
+  uint8_t sgthrs;
+  uint16_t sg_result;
+  tmc2209_stallguard_get(&enable, &sgthrs, &sg_result, &stalled);
+
+  const can_message_t msg =
+      mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_EVENT];
+  const float source_sigs[4] = {(float)can_node_id, (float)sg_result,
+                                (float)sgthrs, (float)stalled};
+  uint32_t sigs[4] = {0};
+  for (int i = 0; i < msg.signal_count; ++i) {
+    sigs[i] = physical_to_raw(source_sigs[i], &msg.signals[i]);
+  }
+  can_send_message_raw32(&HCAN, &msg, sigs);
+}
+
+/**
+ * @brief Poll StallGuard; broadcast a stallguard_event on a stall edge.
+ */
+static void stallguard_run(void) {
+  if (tmc2209_stallguard_poll()) {
+    can_tx_stallguard_event();
+  }
 }
 
 /**
@@ -121,7 +147,7 @@ static void sensors_run(void) {
   // Absolute angle sensor.
   as5047p_get_angle();
 #ifdef MC_STEPPER_FULL_CAN_TELEMETRY
-  can_tx_absolute_angle();
+  can_tx_absolute_encoder();
 #endif
 }
 
@@ -248,5 +274,6 @@ void mc_stepper_init(void) {
   scheduler_add_task(can_id_allocatee_state_machine, 20);
   scheduler_add_task(can_tx_controls_diag, 20);
   scheduler_add_task(can_stepper_reconfig_run, 20);
+  scheduler_add_task(stallguard_run, 50);
   scheduler_add_task(led_status_run, 100);
 }

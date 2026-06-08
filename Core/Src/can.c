@@ -24,18 +24,23 @@ uint8_t tx_buffer[8];
 uint32_t tx_mailbox;
 
 // Deferred stepper reconfiguration. CAN RX handlers run in interrupt context,
-// but the TMC2209 register updates perform blocking UART transfers. Requests are
-// captured here and applied from the main context via can_stepper_reconfig_run().
+// but the TMC2209 register updates perform blocking UART transfers. Requests
+// are captured here and applied from the main context via
+// can_stepper_reconfig_run().
 static volatile bool currents_pending = false;
-static uint16_t currents_run_ma;       // VREF DAC target current (mA).
-static uint8_t currents_run;           // IRUN scaler [0,31].
-static uint8_t currents_hold;          // IHOLD scaler [0,31].
-static uint8_t currents_hold_delay;    // IHOLDDELAY [0,15].
+static uint16_t currents_run_ma;    // VREF DAC target current (mA).
+static uint8_t currents_run;        // IRUN scaler [0,31].
+static uint8_t currents_hold;       // IHOLD scaler [0,31].
+static uint8_t currents_hold_delay; // IHOLDDELAY [0,15].
 
 static volatile bool motion_pending = false;
-static uint16_t motion_step_size;        // Microsteps [1,256].
-static float motion_max_accel_rad_s2;    // rad/s^2.
-static float motion_max_velocity_rad_s;  // rad/s.
+static uint16_t motion_step_size;       // Microsteps [1,256].
+static float motion_max_accel_rad_s2;   // rad/s^2.
+static float motion_max_velocity_rad_s; // rad/s.
+
+static volatile bool stallguard_pending = false;
+static bool stallguard_enable;    // StallGuard detection enabled.
+static uint8_t stallguard_sgthrs; // SGTHRS threshold [0,255].
 
 /** Public variables. *********************************************************/
 
@@ -195,9 +200,9 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   }
 }
 
-void can_rx_command_stepper_current(can_header_t *header, uint8_t *data) {
+void can_rx_command_current_config_set(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_CURRENT];
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_SET];
 
   const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
   const uint16_t run_current_ma =
@@ -225,9 +230,9 @@ void can_rx_command_stepper_current(can_header_t *header, uint8_t *data) {
   currents_pending = true;
 }
 
-void can_rx_command_stepper_motion(can_header_t *header, uint8_t *data) {
+void can_rx_command_motion_config_set(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_MOTION];
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_SET];
 
   const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
   const uint16_t step_size = (uint16_t)decode_signal(&msg->signals[1], data);
@@ -284,7 +289,7 @@ void can_rx_datetime_get(can_header_t *header, uint8_t *data) {
   HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
 
   const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_GET_RESPONSE];
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_RESPONSE];
   const uint32_t values[] = {
       sDate.Year,  sDate.Month,   sDate.Date,    sDate.WeekDay,
       sTime.Hours, sTime.Minutes, sTime.Seconds,
@@ -293,9 +298,9 @@ void can_rx_datetime_get(can_header_t *header, uint8_t *data) {
   can_send_message_raw32(&HCAN, msg, values);
 }
 
-void can_rx_controls_tune(can_header_t *header, uint8_t *data) {
+void can_rx_controls_config_set(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_TUNE];
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_SET];
 
   const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
   // signals[1] is reserved0.
@@ -310,9 +315,9 @@ void can_rx_controls_tune(can_header_t *header, uint8_t *data) {
   controls_set_gains(k_p, k_i, k_d);
 }
 
-void can_rx_controls_tune_get(can_header_t *header, uint8_t *data) {
+void can_rx_controls_config_get(can_header_t *header, uint8_t *data) {
   const can_message_t *req =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_TUNE_GET];
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_GET];
 
   const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
   if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
@@ -323,7 +328,7 @@ void can_rx_controls_tune_get(can_header_t *header, uint8_t *data) {
   controls_get_gains(&k_p, &k_i, &k_d);
 
   const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_TUNE_GET_RESPONSE];
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_RESPONSE];
   const float source_sigs[3] = {k_p, k_i, k_d};
   uint32_t sigs[3] = {0};
   for (int i = 0; i < msg->signal_count; ++i) {
@@ -332,9 +337,99 @@ void can_rx_controls_tune_get(can_header_t *header, uint8_t *data) {
   can_send_message_raw32(&HCAN, msg, sigs);
 }
 
+void can_rx_command_current_config_get(can_header_t *header, uint8_t *data) {
+  const can_message_t *req =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_GET];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
+    return;
+  }
+
+  uint16_t run_current_ma;
+  uint8_t current_run, current_hold, current_hold_delay;
+  tmc2209_get_currents(&run_current_ma, &current_run, &current_hold,
+                       &current_hold_delay);
+
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_RESPONSE];
+  const float source_sigs[4] = {(float)run_current_ma, (float)current_run,
+                                (float)current_hold, (float)current_hold_delay};
+  uint32_t sigs[4] = {0};
+  for (int i = 0; i < msg->signal_count; ++i) {
+    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
+  }
+  can_send_message_raw32(&HCAN, msg, sigs);
+}
+
+void can_rx_command_motion_config_get(can_header_t *header, uint8_t *data) {
+  const can_message_t *req =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_GET];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
+    return;
+  }
+
+  const float source_sigs[3] = {(float)controls_get_microsteps(),
+                                controls_get_max_accel_rad_s2(),
+                                controls_get_max_velocity_rad_s()};
+
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_RESPONSE];
+  uint32_t sigs[3] = {0};
+  for (int i = 0; i < msg->signal_count; ++i) {
+    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
+  }
+  can_send_message_raw32(&HCAN, msg, sigs);
+}
+
+void can_rx_stallguard_set(can_header_t *header, uint8_t *data) {
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_SET];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
+  const bool enable = (bool)decode_signal(&msg->signals[1], data);
+  const uint8_t sgthrs = (uint8_t)decode_signal(&msg->signals[2], data);
+
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
+    return;
+  }
+
+  // Capture applied from the main context (blocking UART writes).
+  stallguard_enable = enable;
+  stallguard_sgthrs = sgthrs;
+  stallguard_pending = true;
+}
+
+void can_rx_stallguard_get(can_header_t *header, uint8_t *data) {
+  const can_message_t *req =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_GET];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
+    return;
+  }
+
+  bool enable, stalled;
+  uint8_t sgthrs;
+  uint16_t sg_result;
+  tmc2209_stallguard_get(&enable, &sgthrs, &sg_result, &stalled);
+
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_RESPONSE];
+  const float source_sigs[4] = {(float)enable, (float)sgthrs, (float)sg_result,
+                                (float)stalled};
+  uint32_t sigs[4] = {0};
+  for (int i = 0; i < msg->signal_count; ++i) {
+    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
+  }
+  can_send_message_raw32(&HCAN, msg, sigs);
+}
+
 void can_rx_version_get(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_VERSION_GET_RESPONSE];
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_VERSION_RESPONSE];
   const uint32_t values[] = {
       MC_STEPPER_VERSION_MAJOR,
       MC_STEPPER_VERSION_MINOR,
@@ -413,20 +508,28 @@ void can_db_init(void) {
   // Custom overrides.
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER].rx_handler =
       (can_rx_handler_t)can_rx_command_stepper;
-  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_CURRENT].rx_handler =
-      (can_rx_handler_t)can_rx_command_stepper_current;
-  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_MOTION].rx_handler =
-      (can_rx_handler_t)can_rx_command_stepper_motion;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_SET].rx_handler =
+      (can_rx_handler_t)can_rx_command_motion_config_set;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_GET].rx_handler =
+      (can_rx_handler_t)can_rx_command_motion_config_get;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_SET].rx_handler =
+      (can_rx_handler_t)can_rx_command_current_config_set;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_GET].rx_handler =
+      (can_rx_handler_t)can_rx_command_current_config_get;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_SET].rx_handler =
+      (can_rx_handler_t)can_rx_controls_config_set;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_GET].rx_handler =
+      (can_rx_handler_t)can_rx_controls_config_get;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_SET].rx_handler =
+      (can_rx_handler_t)can_rx_stallguard_set;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_GET].rx_handler =
+      (can_rx_handler_t)can_rx_stallguard_get;
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_SET].rx_handler =
       (can_rx_handler_t)can_rx_datetime_set;
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_GET].rx_handler =
       (can_rx_handler_t)can_rx_datetime_get;
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_VERSION_GET].rx_handler =
       (can_rx_handler_t)can_rx_version_get;
-  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_TUNE].rx_handler =
-      (can_rx_handler_t)can_rx_controls_tune;
-  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_TUNE_GET].rx_handler =
-      (can_rx_handler_t)can_rx_controls_tune_get;
 }
 
 void can_stepper_reconfig_run(void) {
@@ -466,6 +569,17 @@ void can_stepper_reconfig_run(void) {
       controls_set_max_velocity_rad_s(max_velocity_rad_s);
       tmc2209_set_step_size(step_size);
     }
+  }
+
+  // StallGuard: register writes are non-disruptive, so apply in any state.
+  if (stallguard_pending) {
+    __disable_irq();
+    const bool enable = stallguard_enable;
+    const uint8_t sgthrs = stallguard_sgthrs;
+    stallguard_pending = false;
+    __enable_irq();
+
+    tmc2209_stallguard_config(enable, sgthrs);
   }
 }
 

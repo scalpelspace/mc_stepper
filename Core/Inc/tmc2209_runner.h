@@ -69,6 +69,21 @@ HAL_StatusTypeDef tmc2209_set_currents(uint16_t run_current_ma,
                                        uint8_t current_hold_delay);
 
 /**
+ * @brief Read back the last-applied current settings.
+ *
+ * Reports cached values: the TMC2209 IHOLD_IRUN register is write-only and the
+ * run current is set via the external VREF DAC, so neither can be read from the
+ * chip. All out-params are nullable.
+ *
+ * @param run_current_ma Output cached run current target (mA).
+ * @param current_run Output cached IRUN scaler.
+ * @param current_hold Output cached IHOLD scaler.
+ * @param current_hold_delay Output cached IHOLDDELAY.
+ */
+void tmc2209_get_currents(uint16_t *run_current_ma, uint8_t *current_run,
+                          uint8_t *current_hold, uint8_t *current_hold_delay);
+
+/**
  * @brief Update the driver microstep resolution without a full re-init.
  *
  * Driver-side counterpart to controls_set_microsteps(). Used by the CAN motion
@@ -79,6 +94,43 @@ HAL_StatusTypeDef tmc2209_set_currents(uint16_t run_current_ma,
  * @returns HAL_StatusTypeDef status.
  */
 HAL_StatusTypeDef tmc2209_set_step_size(uint16_t step_size);
+
+/**
+ * @brief Configure StallGuard detection.
+ *
+ * Writes the SGTHRS threshold and gates StallGuard on velocity via TCOOLTHRS.
+ * Performs blocking UART writes; call from the main context, not an ISR.
+ *
+ * @param enable Enable StallGuard polling/detection.
+ * @param sgthrs StallGuard threshold [0,255]; stall when SG_RESULT <= 2*sgthrs.
+ *
+ * @returns HAL_StatusTypeDef status.
+ */
+HAL_StatusTypeDef tmc2209_stallguard_config(bool enable, uint8_t sgthrs);
+
+/**
+ * @brief Read back the StallGuard configuration and latest result.
+ *
+ * All out-params are nullable.
+ *
+ * @param enable Output StallGuard enabled state.
+ * @param sgthrs Output cached SGTHRS threshold.
+ * @param sg_result Output the last polled SG_RESULT load value.
+ * @param stalled Output the current latched stall state.
+ */
+void tmc2209_stallguard_get(bool *enable, uint8_t *sgthrs, uint16_t *sg_result,
+                            bool *stalled);
+
+/**
+ * @brief Poll StallGuard once; detect a stall edge.
+ *
+ * When enabled and stepping, reads SG_RESULT and updates the latched stall
+ * state. Performs a blocking UART read; call from the main context (e.g. a
+ * scheduler task), not an ISR.
+ *
+ * @return true on a rising stall edge (newly stalled this call), else false.
+ */
+bool tmc2209_stallguard_poll(void);
 
 /**
  * @brief Set step frequency in steps/sec (updates compare interval).
