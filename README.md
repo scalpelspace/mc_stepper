@@ -67,30 +67,30 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 <details markdown="1">
   <summary>Pin & Peripherals Table</summary>
 
-| STM32L432KC | Peripheral              | Config                     | Connection                     | Notes                                 |
-|-------------|-------------------------|----------------------------|--------------------------------|---------------------------------------|
-| PA14        | `SYS_JTCK-SWCLK`        |                            | TC2050 SWD Pin 4: `SWCLK`      |                                       |
-| PA13        | `SYS_JTMS-SWDIO`        |                            | TC2050 SWD Pin 2: `SWDIO`      |                                       |
-|             | `TIM16_CH1`             | PWM no output              |                                | Scheduler.                            |
-| PA10        | `USART1_RX`             | 115200 bps                 | `TX`                           |                                       |
-| PA9         | `USART1_TX`             | 115200 bps                 | `RX`                           |                                       |
-| PA11        | `CAN1_RX`               |                            | TJA1057BTK Pin 1: `TXD`        |                                       |
-| PA12        | `CAN1_TX`               |                            | TJA1057BTK Pin 4: `RXD`        |                                       |
-| PA15        | `GPIO_Output` (SPI1 CS) | Set high                   | AS5147P Pin 1: `CSn`           |                                       |
-| PB3         | `SPI1_SCK`              |                            | AS5147P Pin 2: `CLK`           |                                       |
-| PB4         | `SPI1_MISO`             |                            | AS5147P Pin 3: `MISO`          |                                       |
-| PB5         | `SPI1_MOSI`             |                            | AS5147P Pin 4: `MOSI`          |                                       |
-| PA1         | `TIM2_CH1`              | TIM2 encoder mode          | Quadrature Encoder: `A`        |                                       |
-| PA5         | `TIM2_CH2`              | TIM2 encoder mode          | Quadrature Encoder: `B`        |                                       |
-| PA4         | `DAC1_OUT1`             |                            | TMC2209 Pin 17: `VREF` circuit |                                       |
-| PA7         | `GPIO_Output`           | Hardware pull-up, set high | TMC2209 Pin 2: `ENN`           |                                       |
-| PA2         | `USART2_TX`             | Single Wire (Half-Duplex)  | TMC2209 Pin 14: `PDN_UART`     |                                       |
-| PA3         | `TIM15_CH2`             | Output Compare CH2         | TMC2209 Pin 16: `STEP`         |                                       |
-|             |                         | Hardware GND               | TMC2209 Pin 9: `MS1`           |                                       |
-|             |                         | Hardware GND               | TMC2209 Pin 10: `MS2`          |                                       |
-| PA6         | `GPIO_Output`           | Set low                    | TMC2209 Pin 19: `DIR`          |                                       |
-|             |                         | Hardware pull-down         | TMC2209 Pin 20: `STDBY`        |                                       |
-| PA8         | `TIM1_CH1`              | PWM Generation CH1         | WS2812B-2020 Pin: `DIN`        | DIN pin number depends on IC variant. |
+| STM32L432KC | Peripheral              | Config                     | Connection                       | Notes                                 |
+|-------------|-------------------------|----------------------------|----------------------------------|---------------------------------------|
+| PA14        | `SYS_JTCK-SWCLK`        |                            | TC2050 SWD Pin 4: `SWCLK`        |                                       |
+| PA13        | `SYS_JTMS-SWDIO`        |                            | TC2050 SWD Pin 2: `SWDIO`        |                                       |
+|             | `TIM16_CH1`             | PWM no output              |                                  | Scheduler.                            |
+| PA10        | `USART1_RX`             | 115200 bps                 | `TX`                             |                                       |
+| PA9         | `USART1_TX`             | 115200 bps                 | `RX`                             |                                       |
+| PA11        | `CAN1_RX`               |                            | TJA1057BTK Pin 1: `TXD`          |                                       |
+| PA12        | `CAN1_TX`               |                            | TJA1057BTK Pin 4: `RXD`          |                                       |
+| PA15        | `GPIO_Output` (SPI1 CS) | Set high                   | AS5147P Pin 1: `CSn`             |                                       |
+| PB3         | `SPI1_SCK`              |                            | AS5147P Pin 2: `CLK`             |                                       |
+| PB4         | `SPI1_MISO`             |                            | AS5147P Pin 3: `MISO`            |                                       |
+| PB5         | `SPI1_MOSI`             |                            | AS5147P Pin 4: `MOSI`            |                                       |
+| PA1         | `TIM2_CH1`              | TIM2 encoder mode          | GPIO Breakout: (ie Encoder: `A`) | Reserved GPIO breakout (PA1)          |
+| PA5         | `TIM2_CH2`              | TIM2 encoder mode          | GPIO Breakout: (ie Encoder: `B`) | Reserved GPIO breakout (PA5)          |
+| PA4         | `DAC1_OUT1`             |                            | TMC2209 Pin 17: `VREF` circuit   |                                       |
+| PA7         | `GPIO_Output`           | Hardware pull-up, set high | TMC2209 Pin 2: `ENN`             |                                       |
+| PA2         | `USART2_TX`             | Single Wire (Half-Duplex)  | TMC2209 Pin 14: `PDN_UART`       |                                       |
+| PA3         | `TIM15_CH2`             | Output Compare CH2         | TMC2209 Pin 16: `STEP`           |                                       |
+|             |                         | Hardware GND               | TMC2209 Pin 9: `MS1`             |                                       |
+|             |                         | Hardware GND               | TMC2209 Pin 10: `MS2`            |                                       |
+| PA6         | `GPIO_Output`           | Set low                    | TMC2209 Pin 19: `DIR`            |                                       |
+|             |                         | Hardware pull-down         | TMC2209 Pin 20: `STDBY`          |                                       |
+| PA8         | `TIM1_CH1`              | PWM Generation CH1         | WS2812B-2020 Pin: `DIN`          | DIN pin number depends on IC variant. |
 
 </details>
 
@@ -160,6 +160,9 @@ Thus, the prescaler, $PSC = 80 - 1$.
 ---
 
 ## 4 AB (Quadrature) Encoder
+
+PA5 and PA1 are designated as GPIO breakouts, with default configration for a AB
+quadrature encoder.
 
 ### 4.1 Background
 
