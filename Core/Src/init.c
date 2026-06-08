@@ -41,7 +41,7 @@ static volatile bool s_redatum_pending = false;
 
 /** Private functions. ********************************************************/
 
-static void can_tx_controls_diag(void) {
+static void can_tx_controls_diagnostic(void) {
   const can_message_t msg =
       mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_DIAGNOSTIC];
   const float pos_sp = controls_position_setpoint;
@@ -272,7 +272,9 @@ void mc_stepper_init(void) {
   scheduler_init(); // Initialize scheduler.
   scheduler_add_task(controls_run, CONTROLS_PERIOD_MS);
   scheduler_add_task(can_id_allocatee_state_machine, 20);
-  scheduler_add_task(can_tx_controls_diag, 20);
+#ifdef MC_STEPPER_FULL_CAN_TELEMETRY
+  scheduler_add_task(can_tx_controls_diagnostic, 20);
+#endif
   scheduler_add_task(can_stepper_reconfig_run, 20);
   scheduler_add_task(stallguard_run, 50);
   scheduler_add_task(led_status_run, 100);
