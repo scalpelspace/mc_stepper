@@ -25,7 +25,7 @@
 
 /** Private variables. ********************************************************/
 
-volatile uint16_t g_dt_ticks; // Time space between successive step signals.
+static volatile uint16_t g_dt_ticks; // Time between successive step signals.
 
 // Exact step-count budget for open-loop moves. The channel runs in TOGGLE mode,
 // so the STEP pin flips once per compare match and 2 toggles == 1 microstep.
@@ -34,6 +34,22 @@ volatile uint16_t g_dt_ticks; // Time space between successive step signals.
 // and closed-loop position run unbounded.
 static volatile bool g_step_bounded = false;
 static volatile uint32_t g_toggles_remaining = 0;
+
+// Shadow of the last-applied current settings. The TMC2209 IHOLD_IRUN register
+// is write-only and the run current is set via the external VREF DAC.
+static uint16_t s_run_current_ma = 0;
+static uint8_t s_current_run = 0;
+static uint8_t s_current_hold = 0;
+static uint8_t s_current_hold_delay = 0;
+
+// StallGuard state. Detection compares the live SG_RESULT against 2*SGTHRS
+// while the motor is stepping. SGTHRS is write-only on the chip, so it is
+// cached here.
+#define TMC2209_SG_TCOOLTHRS (0x000FFFFFu) // Keep StallGuard on when moving.
+static volatile bool s_sg_enabled = false;
+static volatile uint8_t s_sgthrs = 0;
+static volatile uint16_t s_sg_result = 0;
+static volatile bool s_sg_stalled = false;
 
 /** User implementations into STM32 HAL (overwrite weak HAL functions). *******/
 
@@ -137,6 +153,12 @@ HAL_StatusTypeDef tmc2209_init(const tmc2209_configuration_t config) {
   if (result != HAL_OK)
     return result;
 
+  // Cache for read-back (write-only registers, see shadow declaration).
+  s_run_current_ma = config.run_current_ma;
+  s_current_run = config.current_run;
+  s_current_hold = config.current_hold;
+  s_current_hold_delay = config.current_hold_delay;
+
   // Set step size.
   result = tmc2209_set_microsteps(config.step_size);
   if (result != HAL_OK)
@@ -172,12 +194,81 @@ HAL_StatusTypeDef tmc2209_set_currents(const uint16_t run_current_ma,
   HAL_DAC_SetValue(&TMC2209_VREF_DAC, TMC2209_VREF_DAC_CHANNEL, DAC_ALIGN_12B_R,
                    dac_counts); // (12-bit right-aligned).
 
+  // Cache for read-back (write-only registers, see shadow declaration).
+  s_run_current_ma = run_current_ma;
+  s_current_run = current_run;
+  s_current_hold = current_hold;
+  s_current_hold_delay = current_hold_delay;
+
   // Update IHOLD, IRUN, IHOLDDELAY.
   return tmc2209_set_ihold_irun(current_hold, current_run, current_hold_delay);
 }
 
+void tmc2209_get_currents(uint16_t *const run_current_ma,
+                          uint8_t *const current_run,
+                          uint8_t *const current_hold,
+                          uint8_t *const current_hold_delay) {
+  if (run_current_ma)
+    *run_current_ma = s_run_current_ma;
+  if (current_run)
+    *current_run = s_current_run;
+  if (current_hold)
+    *current_hold = s_current_hold;
+  if (current_hold_delay)
+    *current_hold_delay = s_current_hold_delay;
+}
+
 HAL_StatusTypeDef tmc2209_set_step_size(const uint16_t step_size) {
   return tmc2209_set_microsteps(step_size);
+}
+
+HAL_StatusTypeDef tmc2209_stallguard_config(const bool enable,
+                                            const uint8_t sgthrs) {
+  s_sg_enabled = enable;
+  s_sgthrs = sgthrs;
+  s_sg_stalled = false; // Clear any latched stall on reconfiguration.
+
+  HAL_StatusTypeDef result = tmc2209_set_sgthrs(sgthrs);
+  if (result != HAL_OK)
+    return result;
+
+  // Gate StallGuard on velocity: permissive when enabled, off otherwise.
+  return tmc2209_set_tcoolthrs(enable ? TMC2209_SG_TCOOLTHRS : 0u);
+}
+
+void tmc2209_stallguard_get(bool *const enable, uint8_t *const sgthrs,
+                            uint16_t *const sg_result, bool *const stalled) {
+  if (enable)
+    *enable = s_sg_enabled;
+  if (sgthrs)
+    *sgthrs = s_sgthrs;
+  if (sg_result)
+    *sg_result = s_sg_result;
+  if (stalled)
+    *stalled = s_sg_stalled;
+}
+
+bool tmc2209_stallguard_poll(void) {
+  if (!s_sg_enabled)
+    return false;
+
+  // SG_RESULT is only meaningful while stepping (g_dt_ticks != 0 means the step
+  // timer is active). At standstill clear the latch so a stall does not persist.
+  if (g_dt_ticks == 0u) {
+    s_sg_stalled = false;
+    return false;
+  }
+
+  uint16_t sg = 0;
+  if (tmc2209_get_sg_result(&sg) != HAL_OK) {
+    return false; // Transient UART error, re-evaluate next cycle.
+  }
+  s_sg_result = sg;
+
+  const bool stalled = (sg <= (uint16_t)(2u * (uint16_t)s_sgthrs));
+  const bool newly_stalled = (stalled && !s_sg_stalled);
+  s_sg_stalled = stalled;
+  return newly_stalled;
 }
 
 HAL_StatusTypeDef tmc2209_step_set_freq_hz(const uint32_t f_step_hz) {
