@@ -13,15 +13,6 @@
 #include "tmc2209_runner.h"
 #include <math.h>
 
-/** Public variables. *********************************************************/
-
-volatile controls_state_t controls_state = CONTROLS_DISABLE;
-
-volatile float controls_position_meas_rad = 0;
-volatile float controls_position_setpoint = 0;
-volatile float controls_velocity_setpoint = 0;
-volatile float controls_step_rate_command = 0;
-
 /** Private variables. ********************************************************/
 
 static mc_stepper_command_t control_command = {0}; // Command input.
@@ -59,6 +50,15 @@ static float s_profile_vel = 0.0f; // Planned velocity (rad/s).
 static int32_t s_ol_pos_steps = 0; // Open-loop commanded position (microsteps).
 static bool s_ol_dir = true;       // Move direction (true = forward).
 static float s_ol_step_vel = 0.0f; // Step-domain rate (steps/s).
+
+/** Public variables. *********************************************************/
+
+volatile controls_state_t controls_state = CONTROLS_DISABLE;
+
+volatile float controls_position_meas_rad = 0;
+volatile float controls_position_setpoint = 0;
+volatile float controls_velocity_setpoint = 0;
+volatile float controls_step_rate_command = 0;
 
 /** Private snapshot functions. ***********************************************/
 

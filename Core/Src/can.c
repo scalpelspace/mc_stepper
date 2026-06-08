@@ -19,9 +19,8 @@
 /** Private variables. ********************************************************/
 
 // Transmit variables.
-CAN_TxHeaderTypeDef tx_header;
-uint8_t tx_buffer[8];
-uint32_t tx_mailbox;
+static CAN_TxHeaderTypeDef tx_header;
+static uint32_t tx_mailbox;
 
 // Deferred stepper reconfiguration. CAN RX handlers run in interrupt context,
 // but the TMC2209 register updates perform blocking UART transfers. Requests
