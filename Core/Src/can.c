@@ -112,7 +112,8 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
       (float)decode_signal(&msg->signals[6], data);
 
   // Node ID filter, reject messages not explicitly referencing this node.
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
+      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
     return;
   }
 
@@ -199,36 +200,6 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   }
 }
 
-void can_rx_command_current_config_set(can_header_t *header, uint8_t *data) {
-  const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_SET];
-
-  const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
-  const uint16_t run_current_ma =
-      (uint16_t)decode_signal(&msg->signals[1], data);
-  const uint8_t current_run = (uint8_t)decode_signal(&msg->signals[2], data);
-  const uint8_t current_hold = (uint8_t)decode_signal(&msg->signals[3], data);
-  const uint8_t current_hold_delay =
-      (uint8_t)decode_signal(&msg->signals[4], data);
-
-  // Node ID filter, reject messages not explicitly referencing this node.
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
-    return;
-  }
-
-  // Safety: only reconfigure while the driver is disabled.
-  if (controls_state != CONTROLS_DISABLE) {
-    return;
-  }
-
-  // Capture the request; applied from the main context (see notes above).
-  currents_run_ma = run_current_ma;
-  currents_run = current_run;
-  currents_hold = current_hold;
-  currents_hold_delay = current_hold_delay;
-  currents_pending = true;
-}
-
 void can_rx_command_motion_config_set(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_SET];
@@ -240,7 +211,8 @@ void can_rx_command_motion_config_set(can_header_t *header, uint8_t *data) {
   const float max_velocity_rad_s = (float)decode_signal(&msg->signals[3], data);
 
   // Node ID filter, reject messages not explicitly referencing this node.
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
+      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
     return;
   }
 
@@ -260,6 +232,172 @@ void can_rx_command_motion_config_set(can_header_t *header, uint8_t *data) {
   motion_max_accel_rad_s2 = max_acceleration_rad_s2;
   motion_max_velocity_rad_s = max_velocity_rad_s;
   motion_pending = true;
+}
+
+void can_rx_command_motion_config_get(can_header_t *header, uint8_t *data) {
+  const can_message_t *req =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_GET];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
+      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+    return;
+  }
+
+  const float source_sigs[3] = {(float)controls_get_microsteps(),
+                                controls_get_max_accel_rad_s2(),
+                                controls_get_max_velocity_rad_s()};
+
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_RESPONSE];
+  uint32_t sigs[3] = {0};
+  for (int i = 0; i < msg->signal_count; ++i) {
+    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
+  }
+  can_send_message_raw32(&HCAN, msg, sigs);
+}
+
+void can_rx_command_current_config_set(can_header_t *header, uint8_t *data) {
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_SET];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
+  const uint16_t run_current_ma =
+      (uint16_t)decode_signal(&msg->signals[1], data);
+  const uint8_t current_run = (uint8_t)decode_signal(&msg->signals[2], data);
+  const uint8_t current_hold = (uint8_t)decode_signal(&msg->signals[3], data);
+  const uint8_t current_hold_delay =
+      (uint8_t)decode_signal(&msg->signals[4], data);
+
+  // Node ID filter, reject messages not explicitly referencing this node.
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
+      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+    return;
+  }
+
+  // Safety: only reconfigure while the driver is disabled.
+  if (controls_state != CONTROLS_DISABLE) {
+    return;
+  }
+
+  // Capture the request; applied from the main context (see notes above).
+  currents_run_ma = run_current_ma;
+  currents_run = current_run;
+  currents_hold = current_hold;
+  currents_hold_delay = current_hold_delay;
+  currents_pending = true;
+}
+
+void can_rx_command_current_config_get(can_header_t *header, uint8_t *data) {
+  const can_message_t *req =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_GET];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
+      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+    return;
+  }
+
+  uint16_t run_current_ma;
+  uint8_t current_run, current_hold, current_hold_delay;
+  tmc2209_get_currents(&run_current_ma, &current_run, &current_hold,
+                       &current_hold_delay);
+
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_RESPONSE];
+  const float source_sigs[4] = {(float)run_current_ma, (float)current_run,
+                                (float)current_hold, (float)current_hold_delay};
+  uint32_t sigs[4] = {0};
+  for (int i = 0; i < msg->signal_count; ++i) {
+    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
+  }
+  can_send_message_raw32(&HCAN, msg, sigs);
+}
+
+void can_rx_controls_config_set(can_header_t *header, uint8_t *data) {
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_SET];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
+  // signals[1] is reserved0.
+  const float k_p = (float)decode_signal(&msg->signals[2], data);
+  const float k_i = (float)decode_signal(&msg->signals[3], data);
+  const float k_d = (float)decode_signal(&msg->signals[4], data);
+
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
+      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+    return;
+  }
+
+  controls_set_gains(k_p, k_i, k_d);
+}
+
+void can_rx_controls_config_get(can_header_t *header, uint8_t *data) {
+  const can_message_t *req =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_GET];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
+      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+    return;
+  }
+
+  float k_p, k_i, k_d;
+  controls_get_gains(&k_p, &k_i, &k_d);
+
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_RESPONSE];
+  const float source_sigs[3] = {k_p, k_i, k_d};
+  uint32_t sigs[3] = {0};
+  for (int i = 0; i < msg->signal_count; ++i) {
+    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
+  }
+  can_send_message_raw32(&HCAN, msg, sigs);
+}
+
+void can_rx_stallguard_set(can_header_t *header, uint8_t *data) {
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_SET];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
+  const bool enable = (bool)decode_signal(&msg->signals[1], data);
+  const uint8_t sgthrs = (uint8_t)decode_signal(&msg->signals[2], data);
+
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
+      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+    return;
+  }
+
+  // Capture applied from the main context (blocking UART writes).
+  stallguard_enable = enable;
+  stallguard_sgthrs = sgthrs;
+  stallguard_pending = true;
+}
+
+void can_rx_stallguard_get(can_header_t *header, uint8_t *data) {
+  const can_message_t *req =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_GET];
+
+  const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
+  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
+      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+    return;
+  }
+
+  bool enable, stalled;
+  uint8_t sgthrs;
+  uint16_t sg_result;
+  tmc2209_stallguard_get(&enable, &sgthrs, &sg_result, &stalled);
+
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_RESPONSE];
+  const float source_sigs[4] = {(float)enable, (float)sgthrs, (float)sg_result,
+                                (float)stalled};
+  uint32_t sigs[4] = {0};
+  for (int i = 0; i < msg->signal_count; ++i) {
+    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
+  }
+  can_send_message_raw32(&HCAN, msg, sigs);
 }
 
 void can_rx_datetime_set(can_header_t *header, uint8_t *data) {
@@ -295,135 +433,6 @@ void can_rx_datetime_get(can_header_t *header, uint8_t *data) {
   };
 
   can_send_message_raw32(&HCAN, msg, values);
-}
-
-void can_rx_controls_config_set(can_header_t *header, uint8_t *data) {
-  const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_SET];
-
-  const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
-  // signals[1] is reserved0.
-  const float k_p = (float)decode_signal(&msg->signals[2], data);
-  const float k_i = (float)decode_signal(&msg->signals[3], data);
-  const float k_d = (float)decode_signal(&msg->signals[4], data);
-
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
-    return;
-  }
-
-  controls_set_gains(k_p, k_i, k_d);
-}
-
-void can_rx_controls_config_get(can_header_t *header, uint8_t *data) {
-  const can_message_t *req =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_GET];
-
-  const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
-    return;
-  }
-
-  float k_p, k_i, k_d;
-  controls_get_gains(&k_p, &k_i, &k_d);
-
-  const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_RESPONSE];
-  const float source_sigs[3] = {k_p, k_i, k_d};
-  uint32_t sigs[3] = {0};
-  for (int i = 0; i < msg->signal_count; ++i) {
-    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
-  }
-  can_send_message_raw32(&HCAN, msg, sigs);
-}
-
-void can_rx_command_current_config_get(can_header_t *header, uint8_t *data) {
-  const can_message_t *req =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_GET];
-
-  const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
-    return;
-  }
-
-  uint16_t run_current_ma;
-  uint8_t current_run, current_hold, current_hold_delay;
-  tmc2209_get_currents(&run_current_ma, &current_run, &current_hold,
-                       &current_hold_delay);
-
-  const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_RESPONSE];
-  const float source_sigs[4] = {(float)run_current_ma, (float)current_run,
-                                (float)current_hold, (float)current_hold_delay};
-  uint32_t sigs[4] = {0};
-  for (int i = 0; i < msg->signal_count; ++i) {
-    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
-  }
-  can_send_message_raw32(&HCAN, msg, sigs);
-}
-
-void can_rx_command_motion_config_get(can_header_t *header, uint8_t *data) {
-  const can_message_t *req =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_GET];
-
-  const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
-    return;
-  }
-
-  const float source_sigs[3] = {(float)controls_get_microsteps(),
-                                controls_get_max_accel_rad_s2(),
-                                controls_get_max_velocity_rad_s()};
-
-  const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_RESPONSE];
-  uint32_t sigs[3] = {0};
-  for (int i = 0; i < msg->signal_count; ++i) {
-    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
-  }
-  can_send_message_raw32(&HCAN, msg, sigs);
-}
-
-void can_rx_stallguard_set(can_header_t *header, uint8_t *data) {
-  const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_SET];
-
-  const uint8_t node_id = (uint8_t)decode_signal(&msg->signals[0], data);
-  const bool enable = (bool)decode_signal(&msg->signals[1], data);
-  const uint8_t sgthrs = (uint8_t)decode_signal(&msg->signals[2], data);
-
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
-    return;
-  }
-
-  // Capture applied from the main context (blocking UART writes).
-  stallguard_enable = enable;
-  stallguard_sgthrs = sgthrs;
-  stallguard_pending = true;
-}
-
-void can_rx_stallguard_get(can_header_t *header, uint8_t *data) {
-  const can_message_t *req =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_GET];
-
-  const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST) {
-    return;
-  }
-
-  bool enable, stalled;
-  uint8_t sgthrs;
-  uint16_t sg_result;
-  tmc2209_stallguard_get(&enable, &sgthrs, &sg_result, &stalled);
-
-  const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_RESPONSE];
-  const float source_sigs[4] = {(float)enable, (float)sgthrs, (float)sg_result,
-                                (float)stalled};
-  uint32_t sigs[4] = {0};
-  for (int i = 0; i < msg->signal_count; ++i) {
-    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
-  }
-  can_send_message_raw32(&HCAN, msg, sigs);
 }
 
 void can_rx_version_get(can_header_t *header, uint8_t *data) {
