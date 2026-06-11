@@ -46,7 +46,7 @@ void tmc2209_disable(void);
  *
  * @param config TMC2209 configuration defined by tmc2209_configuration_t.
  *
- * @returns HAL_StatusTypeDef status.
+ * @return HAL_StatusTypeDef status.
  */
 HAL_StatusTypeDef tmc2209_init(tmc2209_configuration_t config);
 
@@ -61,7 +61,7 @@ HAL_StatusTypeDef tmc2209_init(tmc2209_configuration_t config);
  * @param current_hold TMC2209 IHOLD scaler [0,31].
  * @param current_hold_delay TMC2209 IHOLDDELAY [0,15].
  *
- * @returns HAL_StatusTypeDef status.
+ * @return HAL_StatusTypeDef status.
  */
 HAL_StatusTypeDef tmc2209_set_currents(uint16_t run_current_ma,
                                        uint8_t current_run,
@@ -91,7 +91,7 @@ void tmc2209_get_currents(uint16_t *run_current_ma, uint8_t *current_run,
  *
  * @param step_size Microstep setting [1,256].
  *
- * @returns HAL_StatusTypeDef status.
+ * @return HAL_StatusTypeDef status.
  */
 HAL_StatusTypeDef tmc2209_set_step_size(uint16_t step_size);
 
@@ -104,7 +104,7 @@ HAL_StatusTypeDef tmc2209_set_step_size(uint16_t step_size);
  * @param enable Enable StallGuard polling/detection.
  * @param sgthrs StallGuard threshold [0,255]; stall when SG_RESULT <= 2*sgthrs.
  *
- * @returns HAL_StatusTypeDef status.
+ * @return HAL_StatusTypeDef status.
  */
 HAL_StatusTypeDef tmc2209_stallguard_config(bool enable, uint8_t sgthrs);
 
@@ -137,7 +137,7 @@ bool tmc2209_stallguard_poll(void);
  *
  * @param f_step_hz Target step frequency in hertz to set.
  *
- * @returns HAL_StatusTypeDef status.
+ * @return HAL_StatusTypeDef status.
  */
 HAL_StatusTypeDef tmc2209_step_set_freq_hz(uint32_t f_step_hz);
 
@@ -164,7 +164,7 @@ void tmc2209_step_clear_count(void);
 /**
  * @brief Microsteps still pending in the active budget.
  *
- * @returns Remaining microsteps budget, 0 for unbounded or move complete.
+ * @return Remaining microsteps budget, 0 for unbounded or move complete.
  */
 uint32_t tmc2209_step_remaining(void);
 
@@ -173,7 +173,7 @@ uint32_t tmc2209_step_remaining(void);
  *
  * @param forward True for forward (low), false for backwards (high).
  *
- * @returns HAL_StatusTypeDef status.
+ * @return HAL_StatusTypeDef status.
  */
 HAL_StatusTypeDef tmc2209_step_direction(bool forward);
 

@@ -61,7 +61,7 @@ HAL_StatusTypeDef tmc2209_set_current_sense(bool use_internal_rsense,
  *
  * @param sgthrs StallGuard threshold [0,255].
  *
- * @returns HAL_StatusTypeDef status.
+ * @return HAL_StatusTypeDef status.
  */
 HAL_StatusTypeDef tmc2209_set_sgthrs(uint8_t sgthrs);
 
@@ -74,7 +74,7 @@ HAL_StatusTypeDef tmc2209_set_sgthrs(uint8_t sgthrs);
  *
  * @param tcoolthrs 20-bit TSTEP threshold.
  *
- * @returns HAL_StatusTypeDef status.
+ * @return HAL_StatusTypeDef status.
  */
 HAL_StatusTypeDef tmc2209_set_tcoolthrs(uint32_t tcoolthrs);
 
@@ -86,7 +86,7 @@ HAL_StatusTypeDef tmc2209_set_tcoolthrs(uint32_t tcoolthrs);
  *
  * @param out Output 10-bit load result [0,1023]. Non-null.
  *
- * @returns HAL_StatusTypeDef status.
+ * @return HAL_StatusTypeDef status.
  */
 HAL_StatusTypeDef tmc2209_get_sg_result(uint16_t *out);
 
