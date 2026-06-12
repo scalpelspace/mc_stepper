@@ -311,6 +311,6 @@ void mc_stepper_init(void) {
   scheduler_add_task(can_tx_controls_diagnostic, 20);
 #endif
   scheduler_add_task(can_stepper_reconfig_run, 20);
-  scheduler_add_task(stallguard_run, 50);
-  scheduler_add_task(led_status_run, 100);
+  scheduler_add_task(stallguard_run, 10);
+  scheduler_add_task(led_status_run, 50);
 }
