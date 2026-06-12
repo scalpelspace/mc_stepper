@@ -71,7 +71,7 @@ HAL_StatusTypeDef mcu_temp_start(void);
  * Returns the value cached by the last completed mcu_temp_start() conversion.
  *
  * @return STM32L432KC internal temperature in degrees Celsius as float.
- * @retval == NaN -> no sample taken yet, or last conversion failed.
+ * @retval == 0 -> no sample taken yet.
  */
 float get_mcu_temp(void);
 
