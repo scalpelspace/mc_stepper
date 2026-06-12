@@ -16,14 +16,13 @@
 #include "mcu_temp_hal_adc.h"
 #include "scheduler.h"
 #include "tmc2209_runner.h"
-#include "uid_hash48.h"
 #include "ws2812b_hal_pwm.h"
 
 /** Definitions. **************************************************************/
 
 // Counter triggered task (can_tx_state).
 #define CAN_TX_STATE_TARGET_PERIOD_MS (1000u) // Schedule time desired.
-#define CAN_TX_STATE_TASK_PERIOD_MS (50u)     // Schedule time utilized.
+#define CAN_TX_STATE_TASK_PERIOD_MS (25u)     // Schedule time utilized.
 #define CAN_TX_STATE_TASK_DIVIDER                                              \
   (CAN_TX_STATE_TARGET_PERIOD_MS / CAN_TX_STATE_TASK_PERIOD_MS) // Trigger.
 
@@ -308,12 +307,12 @@ void mc_stepper_init(void) {
   // Scheduler.
   scheduler_init(); // Initialize scheduler.
   scheduler_add_task(controls_run, CONTROLS_PERIOD_MS);
-  scheduler_add_task(can_tx_state_trigger, 50); // 1000 ms.
+  scheduler_add_task(can_tx_state_trigger, CAN_TX_STATE_TASK_PERIOD_MS);
   scheduler_add_task(can_id_allocatee_state_machine, 20);
 #ifdef MC_STEPPER_FULL_CAN_TELEMETRY
   scheduler_add_task(can_tx_controls_diagnostic, 20);
 #endif
   scheduler_add_task(can_stepper_reconfig_run, 20);
   scheduler_add_task(stallguard_run, 10);
-  scheduler_add_task(led_status_run, 50);
+  scheduler_add_task(led_status_run, 25);
 }
