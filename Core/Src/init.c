@@ -13,10 +13,19 @@
 #include "comm.h"
 #include "configuration.h"
 #include "controls.h"
+#include "mcu_temp_hal_adc.h"
 #include "scheduler.h"
 #include "tmc2209_runner.h"
 #include "uid_hash48.h"
 #include "ws2812b_hal_pwm.h"
+
+/** Definitions. **************************************************************/
+
+// Counter triggered task (can_tx_state).
+#define CAN_TX_STATE_TARGET_PERIOD_MS (1000u) // Schedule time desired.
+#define CAN_TX_STATE_TASK_PERIOD_MS (50u)     // Schedule time utilized.
+#define CAN_TX_STATE_TASK_DIVIDER                                              \
+  (CAN_TX_STATE_TARGET_PERIOD_MS / CAN_TX_STATE_TASK_PERIOD_MS) // Trigger.
 
 /** Private variables. ********************************************************/
 
@@ -40,6 +49,33 @@ static bool s_dir_inhibit = false;
 static volatile bool s_redatum_pending = false;
 
 /** Private functions. ********************************************************/
+
+/**
+ * @brief Transmit state message.
+ */
+void can_tx_state(void) {
+  const can_message_t state_msg =
+      mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STATE];
+  uint32_t state_sigs[2] = {0};
+  // TODO: Hardcoded state.
+  const float state_source_sigs[2] = {0, get_mcu_temp()};
+  for (int i = 0; i < state_msg.signal_count; ++i) {
+    state_sigs[i] =
+        physical_to_raw(state_source_sigs[i], &state_msg.signals[i]);
+  }
+  can_send_message_raw32(&hcan1, &state_msg, state_sigs);
+}
+
+static void can_tx_state_trigger(void) {
+  static uint16_t can_tx_state_tick_count = 0;
+
+  if (++can_tx_state_tick_count < CAN_TX_STATE_TASK_DIVIDER) {
+    return; // Not time yet, exit.
+  }
+  can_tx_state_tick_count = 0;
+
+  can_tx_state(); // Trigger task.
+}
 
 static void can_tx_controls_diagnostic(void) {
   const can_message_t msg =
@@ -257,6 +293,9 @@ void mc_stepper_init(void) {
   };
   can_id_allocatee_start(l_config);
 
+  // MCU internal core temperature sense (ADC self-calibration).
+  mcu_temp_init();
+
   // TMC2209. (Must be init after controls_init()), start disabled.
   const tmc2209_configuration_t default_config = {
       false,
@@ -271,6 +310,7 @@ void mc_stepper_init(void) {
   // Scheduler.
   scheduler_init(); // Initialize scheduler.
   scheduler_add_task(controls_run, CONTROLS_PERIOD_MS);
+  scheduler_add_task(can_tx_state_trigger, 50); // 1000 ms.
   scheduler_add_task(can_id_allocatee_state_machine, 20);
 #ifdef MC_STEPPER_FULL_CAN_TELEMETRY
   scheduler_add_task(can_tx_controls_diagnostic, 20);

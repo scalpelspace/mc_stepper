@@ -61,6 +61,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/comm.c
         Core/Src/controls.c
         Core/Src/init.c
+        Core/Src/mcu_temp_hal_adc.c
         Core/Src/pid.c
         Core/Src/rtc.c
         Core/Src/run.c
