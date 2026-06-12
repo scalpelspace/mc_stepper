@@ -7,6 +7,7 @@
 /** Includes. *****************************************************************/
 
 #include "comm.h"
+#include "mcu_temp_hal_adc.h"
 #include "stm32l4xx_hal.h"
 #include "tmc2209_runner.h"
 
@@ -22,4 +23,10 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
   HAL_UART_RxCpltCallback_comm(huart);
+}
+
+/** ADC. */
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+  HAL_ADC_ConvCpltCallback_mcu_temp(hadc);
 }
