@@ -74,7 +74,8 @@ static void can_tx_state_trigger(void) {
   }
   can_tx_state_tick_count = 0;
 
-  can_tx_state(); // Trigger task.
+  can_tx_state();   // Trigger task.
+  mcu_temp_start(); // Trigger next temperature read.
 }
 
 static void can_tx_controls_diagnostic(void) {
@@ -288,8 +289,10 @@ void mc_stepper_init(void) {
   // CAN allocatee begin (configuration check internally).
   auto_can_id_allocatee_start();
 
-  // MCU internal core temperature sense (ADC self-calibration).
+  // MCU internal core temperature sense (ADC self-calibration), then kick the
+  // first DMA conversion so a reading is cached before first task trigger.
   mcu_temp_init();
+  mcu_temp_start();
 
   // TMC2209. (Must be init after controls_init()), start disabled.
   const tmc2209_configuration_t default_config = {
