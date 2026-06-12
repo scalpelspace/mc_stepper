@@ -11,6 +11,7 @@
 #include "controls.h"
 #include "rtc.h"
 #include "tmc2209_runner.h"
+#include "uid_hash48.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -623,6 +624,18 @@ bool can_tx_direct(const can_message_t *msg, const uint8_t data[8]) {
     return true;
   }
   return false;
+}
+
+void auto_can_id_allocatee_start(void) {
+#ifndef ALLOW_CAN_NODE_ID_REASSIGNMENT
+  return;
+#endif
+  const allocatee_config_t l_config = {
+      can_tx_direct,
+      get_uid_hash48_parts,
+      allocatee_complete,
+  };
+  can_id_allocatee_start(l_config);
 }
 
 void allocatee_complete(const can_node_id_t node_id) {

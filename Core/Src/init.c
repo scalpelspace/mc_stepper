@@ -285,13 +285,8 @@ void mc_stepper_init(void) {
   // Closed-loop controls. (Must be init before tmc2209_init()).
   controls_init();
 
-  // CAN allocatee begin.
-  const allocatee_config_t l_config = {
-      can_tx_direct,
-      get_uid_hash48_parts,
-      allocatee_complete,
-  };
-  can_id_allocatee_start(l_config);
+  // CAN allocatee begin (configuration check internally).
+  auto_can_id_allocatee_start();
 
   // MCU internal core temperature sense (ADC self-calibration).
   mcu_temp_init();
