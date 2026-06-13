@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.6 Chrome/140.0.7339.249 Electron/38.8.0 Safari/537.36">
   <diagram name="Page-1" id="Fh3xXZeNDoPXvtaeBFH2">
-    <mxGraphModel dx="1212" dy="629" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+    <mxGraphModel dx="589" dy="306" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -135,7 +135,7 @@
             <mxPoint x="520" y="440" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="X13tPSohob0qXQTbBERg-13" connectable="0" parent="X13tPSohob0qXQTbBERg-12" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=12;fontFamily=JetBrains Mono;fontSource=https://fonts.googleapis.com/css?family=JetBrains+Mono;labelBackgroundColor=#FFAB2E;labelBorderColor=#FFAB2E;" value="TIM16" vertex="1">
+        <mxCell id="X13tPSohob0qXQTbBERg-13" connectable="0" parent="X13tPSohob0qXQTbBERg-12" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=12;fontFamily=JetBrains Mono;fontSource=https://fonts.googleapis.com/css?family=JetBrains+Mono;labelBackgroundColor=#FFAB2E;labelBorderColor=#FFAB2E;" value="TIM16_CH1" vertex="1">
           <mxGeometry relative="1" x="-0.0235" y="2" as="geometry">
             <mxPoint x="-2" y="2" as="offset" />
           </mxGeometry>
