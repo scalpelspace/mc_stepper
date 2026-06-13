@@ -12,8 +12,8 @@
  *******************************************************************************
  */
 
-#ifndef MOMENTUM__MCU_TEMP_HAL_ADC_H
-#define MOMENTUM__MCU_TEMP_HAL_ADC_H
+#ifndef MC_STEPPER__MCU_TEMP_HAL_ADC_H
+#define MC_STEPPER__MCU_TEMP_HAL_ADC_H
 
 /** Includes. *****************************************************************/
 
