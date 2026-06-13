@@ -71,7 +71,9 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 |-------------|-------------------------|----------------------------|----------------------------------|---------------------------------------|
 | PA14        | `SYS_JTCK-SWCLK`        |                            | TC2050 SWD Pin 4: `SWCLK`        |                                       |
 | PA13        | `SYS_JTMS-SWDIO`        |                            | TC2050 SWD Pin 2: `SWDIO`        |                                       |
-|             | `TIM16_CH1`             | PWM no output              |                                  | Scheduler.                            |
+|             | `TIM16_CH1`             | PWM no output              | Scheduling                       | Scheduler.                            |
+|             | `ADC1` `VREFINT`        | Scan conversion mode       | VDDA Sense                       | Configured in ADC1 rank 1.            |
+|             | `ADC1_IN17`             | Scan conversion mode       | Temperature Sensor Channel       | Configured in ADC1 rank 2.            |
 | PA10        | `USART1_RX`             | 115200 bps                 | `TX`                             |                                       |
 | PA9         | `USART1_TX`             | 115200 bps                 | `RX`                             |                                       |
 | PA11        | `CAN1_RX`               |                            | TJA1057BTK Pin 1: `TXD`          |                                       |
@@ -80,8 +82,8 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 | PB3         | `SPI1_SCK`              |                            | AS5147P Pin 2: `CLK`             |                                       |
 | PB4         | `SPI1_MISO`             |                            | AS5147P Pin 3: `MISO`            |                                       |
 | PB5         | `SPI1_MOSI`             |                            | AS5147P Pin 4: `MOSI`            |                                       |
-| PA1         | `TIM2_CH1`              | TIM2 encoder mode          | GPIO Breakout: (ie Encoder: `A`) | Reserved GPIO breakout (PA1)          |
-| PA5         | `TIM2_CH2`              | TIM2 encoder mode          | GPIO Breakout: (ie Encoder: `B`) | Reserved GPIO breakout (PA5)          |
+| PA1         | `TIM2_CH1`              | TIM2 encoder mode          | GPIO Breakout: (ie Encoder: `A`) | Reserved GPIO breakout (PA1).         |
+| PA5         | `TIM2_CH2`              | TIM2 encoder mode          | GPIO Breakout: (ie Encoder: `B`) | Reserved GPIO breakout (PA5).         |
 | PA4         | `DAC1_OUT1`             |                            | TMC2209 Pin 17: `VREF` circuit   |                                       |
 | PA7         | `GPIO_Output`           | Hardware pull-up, set high | TMC2209 Pin 2: `ENN`             |                                       |
 | PA2         | `USART2_TX`             | Single Wire (Half-Duplex)  | TMC2209 Pin 14: `PDN_UART`       |                                       |
