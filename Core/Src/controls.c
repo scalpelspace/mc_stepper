@@ -29,7 +29,7 @@ static float steps_per_rad;
 // Runtime acceleration limit. Seeded from the configured default (rad/s^2),
 // shared with the TMC2209 config, and converted to the steps/s^2 slew cap in
 // controls_init() once steps_per_rad is known.
-static float s_max_accel_rad_s2 = DEFAULT_MAX_ACCELERATION_RAD_S2; // rad/s^2.
+static float s_max_accel_rad_s2 = MC_STEPPER_MAX_ACCELERATION_RAD_S2;
 static float s_max_accel_step = 0.0f; // steps/s^2 slew cap, set in init.
 
 static uint16_t on_target_ticks = 0;   // Position on-target latch count.
@@ -39,7 +39,7 @@ static bool latched_on_target = false; // Position on-target latching check.
 // velocity trajectory toward the setpoint that respects s_max_accel_rad_s2 and
 // s_max_velocity_rad_s. PID then corrects deviation between profile and
 // measured position, so the loop never has to bang-bang against motor limits.
-static float s_max_velocity_rad_s = DEFAULT_MAX_VELOCITY_RAD_S; // Profile max.
+static float s_max_velocity_rad_s = MC_STEPPER_MAX_VELOCITY_RAD_S;
 static float s_profile_pos = 0.0f; // Planned position (rad).
 static float s_profile_vel = 0.0f; // Planned velocity (rad/s).
 

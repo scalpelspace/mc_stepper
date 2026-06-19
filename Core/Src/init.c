@@ -296,12 +296,12 @@ void mc_stepper_init(void) {
   // TMC2209. (Must be init after controls_init()), start disabled.
   const tmc2209_configuration_t default_config = {
       false,
-      DEFAULT_STEP_SIZE,
-      DEFAULT_RUN_CURRENT_MA,
-      DEFAULT_CURRENT_HOLD,
-      DEFAULT_CURRENT_RUN,
-      DEFAULT_CURRENT_HOLD_DELAY,
-      DEFAULT_MAX_ACCELERATION_RAD_S2};
+      MC_STEPPER_STEP_SIZE,
+      MC_STEPPER_RUN_CURRENT_MA,
+      MC_STEPPER_CURRENT_HOLD,
+      MC_STEPPER_CURRENT_RUN,
+      MC_STEPPER_CURRENT_HOLD_DELAY,
+      MC_STEPPER_MAX_ACCELERATION_RAD_S2};
   tmc2209_init(default_config);
 
   // Scheduler.
