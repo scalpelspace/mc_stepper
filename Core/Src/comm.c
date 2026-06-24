@@ -13,6 +13,7 @@
 #include "comm.h"
 #include "configuration.h"
 #include "tmc2209_runner.h"
+#include "uid_hash48.h"
 #include "ws2812b_hal_pwm.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -46,6 +47,14 @@ static void comm_handle_line(const char *line) {
     printf("%s %u.%u.%u.%c\r\n", SCALPELSPACE_SHORT_NAME,
            MC_STEPPER_VERSION_MAJOR, MC_STEPPER_VERSION_MINOR,
            MC_STEPPER_VERSION_PATCH, MC_STEPPER_VERSION_IDENTIFIER);
+  }
+
+  else if (strcmp(line, "uid") == 0) {
+    uint16_t uid0 = 0;
+    uint16_t uid1 = 0;
+    uint16_t uid2 = 0;
+    get_uid_hash48_parts(&uid0, &uid1, &uid2);
+    printf("%u %u %u\n", uid0, uid1, uid2);
   }
 
   else if (strncmp(line, "rgb", 3) == 0) {
