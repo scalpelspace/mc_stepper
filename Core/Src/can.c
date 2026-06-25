@@ -112,9 +112,12 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   const float target_velocity_rad_s =
       (float)decode_signal(&msg->signals[6], data);
 
-  // Node ID filter, reject messages not explicitly referencing this node.
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
-      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+  // Node ID filter.
+  if (node_id != can_node_id || node_id == CAN_ID_NODE_ID_BROADCAST
+#ifdef REQUIRE_NODE_ID_ASSIGNMENT
+      || node_id == CAN_ID_NODE_ID_UNASSIGNED
+#endif
+  ) {
     return;
   }
 
@@ -211,9 +214,12 @@ void can_rx_command_motion_config_set(can_header_t *header, uint8_t *data) {
       (float)decode_signal(&msg->signals[2], data);
   const float max_velocity_rad_s = (float)decode_signal(&msg->signals[3], data);
 
-  // Node ID filter, reject messages not explicitly referencing this node.
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
-      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+  // Node ID filter.
+  if (node_id != can_node_id || node_id == CAN_ID_NODE_ID_BROADCAST
+#ifdef REQUIRE_NODE_ID_ASSIGNMENT
+      || node_id == CAN_ID_NODE_ID_UNASSIGNED
+#endif
+  ) {
     return;
   }
 
@@ -240,8 +246,13 @@ void can_rx_command_motion_config_get(can_header_t *header, uint8_t *data) {
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_GET];
 
   const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
-      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+
+  // Node ID filter.
+  if (node_id != can_node_id || node_id == CAN_ID_NODE_ID_BROADCAST
+#ifdef REQUIRE_NODE_ID_ASSIGNMENT
+      || node_id == CAN_ID_NODE_ID_UNASSIGNED
+#endif
+  ) {
     return;
   }
 
@@ -270,9 +281,12 @@ void can_rx_command_current_config_set(can_header_t *header, uint8_t *data) {
   const uint8_t current_hold_delay =
       (uint8_t)decode_signal(&msg->signals[4], data);
 
-  // Node ID filter, reject messages not explicitly referencing this node.
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
-      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+  // Node ID filter.
+  if (node_id != can_node_id || node_id == CAN_ID_NODE_ID_BROADCAST
+#ifdef REQUIRE_NODE_ID_ASSIGNMENT
+      || node_id == CAN_ID_NODE_ID_UNASSIGNED
+#endif
+  ) {
     return;
   }
 
@@ -294,8 +308,13 @@ void can_rx_command_current_config_get(can_header_t *header, uint8_t *data) {
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_GET];
 
   const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
-      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+
+  // Node ID filter.
+  if (node_id != can_node_id || node_id == CAN_ID_NODE_ID_BROADCAST
+#ifdef REQUIRE_NODE_ID_ASSIGNMENT
+      || node_id == CAN_ID_NODE_ID_UNASSIGNED
+#endif
+  ) {
     return;
   }
 
@@ -325,8 +344,12 @@ void can_rx_controls_config_set(can_header_t *header, uint8_t *data) {
   const float k_i = (float)decode_signal(&msg->signals[3], data);
   const float k_d = (float)decode_signal(&msg->signals[4], data);
 
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
-      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+  // Node ID filter.
+  if (node_id != can_node_id || node_id == CAN_ID_NODE_ID_BROADCAST
+#ifdef REQUIRE_NODE_ID_ASSIGNMENT
+      || node_id == CAN_ID_NODE_ID_UNASSIGNED
+#endif
+  ) {
     return;
   }
 
@@ -338,8 +361,13 @@ void can_rx_controls_config_get(can_header_t *header, uint8_t *data) {
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_GET];
 
   const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
-      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+
+  // Node ID filter.
+  if (node_id != can_node_id || node_id == CAN_ID_NODE_ID_BROADCAST
+#ifdef REQUIRE_NODE_ID_ASSIGNMENT
+      || node_id == CAN_ID_NODE_ID_UNASSIGNED
+#endif
+  ) {
     return;
   }
 
@@ -364,8 +392,12 @@ void can_rx_stallguard_set(can_header_t *header, uint8_t *data) {
   const bool enable = (bool)decode_signal(&msg->signals[1], data);
   const uint8_t sgthrs = (uint8_t)decode_signal(&msg->signals[2], data);
 
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
-      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+  // Node ID filter.
+  if (node_id != can_node_id || node_id == CAN_ID_NODE_ID_BROADCAST
+#ifdef REQUIRE_NODE_ID_ASSIGNMENT
+      || node_id == CAN_ID_NODE_ID_UNASSIGNED
+#endif
+  ) {
     return;
   }
 
@@ -380,8 +412,13 @@ void can_rx_stallguard_get(can_header_t *header, uint8_t *data) {
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_GET];
 
   const uint8_t node_id = (uint8_t)decode_signal(&req->signals[0], data);
-  if (node_id != can_node_id && node_id != CAN_ID_NODE_ID_BROADCAST &&
-      node_id != CAN_ID_NODE_ID_UNASSIGNED) {
+
+  // Node ID filter.
+  if (node_id != can_node_id || node_id == CAN_ID_NODE_ID_BROADCAST
+#ifdef REQUIRE_NODE_ID_ASSIGNMENT
+      || node_id == CAN_ID_NODE_ID_UNASSIGNED
+#endif
+  ) {
     return;
   }
 
