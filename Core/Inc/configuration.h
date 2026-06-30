@@ -16,7 +16,7 @@
 #define MC_STEPPER_VERSION_MAJOR (0u)     // uint8_t number.
 #define MC_STEPPER_VERSION_MINOR (1u)     // uint8_t number.
 #define MC_STEPPER_VERSION_PATCH (0u)     // uint8_t number.
-#define MC_STEPPER_VERSION_IDENTIFIER 'a' // ASCII character.
+#define MC_STEPPER_VERSION_IDENTIFIER 'p' // ASCII character.
 
 // CAN ID standard.
 #define DEFAULT_CAN_NODE_ID (0u)       // Unassigned.
@@ -37,9 +37,9 @@
 #define MC_STEPPER_CURRENT_RUN (8u)
 #define MC_STEPPER_CURRENT_HOLD_DELAY (1u)
 
-/** High level controls configuration. ****************************************/
+/** Motion profile configuration. *********************************************/
 
-// Controls default configuration.
+// Controls motion profile default configuration.
 #define MC_STEPPER_MAX_ACCELERATION_RAD_S2 (300.0f)
 #define MC_STEPPER_MAX_VELOCITY_RAD_S (5.0f)
 

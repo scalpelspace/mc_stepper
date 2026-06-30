@@ -7,13 +7,13 @@
 
 <!-- TOC -->
 * [Changelog](#changelog)
-  * [v0.1.0 (TBD)](#v010--tbd-)
+  * [v0.1.0 (2026-06-30)](#v010--2026-06-30-)
 <!-- TOC -->
 
 </details>
 
 ---
 
-## [v0.1.0 (TBD)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.1.0)
+## [v0.1.0 (2026-06-30)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.1.0)
 
 - Initial release.
