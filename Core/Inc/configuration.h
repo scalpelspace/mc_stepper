@@ -7,10 +7,6 @@
 #ifndef MC_STEPPER__CONFIGURATION_H
 #define MC_STEPPER__CONFIGURATION_H
 
-/** Includes. *****************************************************************/
-
-#include <math.h>
-
 /** Configuration definitions. ************************************************/
 
 // Centralized short name.
@@ -32,15 +28,19 @@
 // Full telemetry flood on CAN bus intended for debug/development purposes.
 #define MC_STEPPER_FULL_CAN_TELEMETRY
 
+/** TMC2209 configuration. ****************************************************/
+
 // TMC2209 default configuration.
 #define MC_STEPPER_STEP_SIZE (16u)
 #define MC_STEPPER_RUN_CURRENT_MA (300u)
 #define MC_STEPPER_CURRENT_HOLD (1u)
 #define MC_STEPPER_CURRENT_RUN (8u)
 #define MC_STEPPER_CURRENT_HOLD_DELAY (1u)
-#define MC_STEPPER_MAX_ACCELERATION_RAD_S2 (300.0f)
+
+/** High level controls configuration. ****************************************/
 
 // Controls default configuration.
+#define MC_STEPPER_MAX_ACCELERATION_RAD_S2 (300.0f)
 #define MC_STEPPER_MAX_VELOCITY_RAD_S (5.0f)
 
 #endif

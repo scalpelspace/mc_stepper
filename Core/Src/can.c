@@ -204,6 +204,26 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   }
 }
 
+void can_rx_command_stepper_zero(can_header_t *header, uint8_t *data) {
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_ZERO];
+
+  const can_node_id_t node_id =
+      (can_node_id_t)decode_signal(&msg->signals[0], data);
+
+  // Node ID filter.
+  if (node_id != can_node_id || node_id == CAN_ID_NODE_ID_BROADCAST
+#ifdef REQUIRE_NODE_ID_ASSIGNMENT
+      || node_id == CAN_ID_NODE_ID_UNASSIGNED
+#endif
+  ) {
+    return;
+  }
+
+  // Request a software zero.
+  controls_request_zero();
+}
+
 void can_rx_command_motion_config_set(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_SET];
@@ -554,6 +574,8 @@ void can_db_init(void) {
   // Custom overrides.
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER].rx_handler =
       (can_rx_handler_t)can_rx_command_stepper;
+  mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_ZERO].rx_handler =
+      (can_rx_handler_t)can_rx_command_stepper_zero;
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_SET].rx_handler =
       (can_rx_handler_t)can_rx_command_motion_config_set;
   mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_GET].rx_handler =

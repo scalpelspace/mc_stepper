@@ -87,26 +87,17 @@ void controls_run(void);
 void controls_set_command(mc_stepper_command_t command);
 
 /**
- * @brief Shift the controls-layer position frame by delta_rad.
+ * @brief Request a software zero, set to the current position.
  *
- * @param delta_rad Position delta in radians.
- *
- * Adds delta_rad to the active position setpoint (and to the pending command
- * setpoint when in POSITION mode), then re-inits both PIDs to avoid a
- * derivative kick across the frame change.
- *
- * Pair with a matching shift of the sensor-side unwrapped position so the
- * physical target is preserved.
- *
- * Not safe to call while CONTROLS_EXECUTING or CONTROLS_START. The caller must
- * gate on a standstill state (DISABLE, IDLE or ON_POSITION_TARGET).
+ * Sets a pending flag to service at the next controls tick, but only if the
+ * loop is at a standstill (DISABLE, IDLE or ON_POSITION_TARGET).
  */
-void controls_redatum_shift(float delta_rad);
+void controls_request_zero(void);
 
 /**
  * @brief Set the control's utilized microstep size at runtime.
  *
- * Only adjustable standstill (IDLE or DISABLE), never mid-move.
+ * Only adjustable when inactive (IDLE or DISABLE), never in a potential move.
  *
  * @param microsteps Desired microsteps per full step.
  */

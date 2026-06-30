@@ -150,6 +150,32 @@ static void profile_step(const float target) {
   s_profile_pos += s_profile_vel * dt;
 }
 
+/**
+ * @brief Shift the controls-layer position frame by delta_rad.
+ *
+ * Adds delta_rad to the active position setpoint (and to the pending command
+ * setpoint when in POSITION mode), and to the motion profile and PID derivative
+ * state, so the frame change introduces no error transient or derivative kick.
+ *
+ * The caller pairs this with a matching shift of the sensor-side unwrapped
+ * position so the physical (absolute) target is preserved.
+ *
+ * @param delta_rad Position delta in radians.
+ */
+static void controls_redatum_shift(const float delta_rad) {
+  __disable_irq();
+  controls_position_setpoint += delta_rad;
+  if (control_command.mode == CONTROL_MODE_POSITION) {
+    control_command.setpoint += delta_rad;
+  }
+  // Keep the profile and PID derivative path in the new frame. Otherwise, the
+  // next tick would see the planned position and prev_measurement in the old
+  // frame and the measurement in the new one, kicking both terms.
+  s_profile_pos += delta_rad;
+  position_pid.prev_measurement += delta_rad;
+  __enable_irq();
+}
+
 static bool on_position_target(const mc_stepper_command_t command) {
   // Open-loop: the move is complete once the exact microstep budget has been
   // emitted by the driver. No encoder is consulted.
@@ -480,19 +506,7 @@ void controls_set_command(const mc_stepper_command_t command) {
   __enable_irq();
 }
 
-void controls_redatum_shift(const float delta_rad) {
-  __disable_irq();
-  controls_position_setpoint += delta_rad;
-  if (control_command.mode == CONTROL_MODE_POSITION) {
-    control_command.setpoint += delta_rad;
-  }
-  // Keep the profile and PID derivative path in the new frame. Otherwise, the
-  // next tick would see the planned position and prev_measurement in the old
-  // frame and the measurement in the new one, kicking both terms.
-  s_profile_pos += delta_rad;
-  position_pid.prev_measurement += delta_rad;
-  __enable_irq();
-}
+void controls_request_zero(void) { s_redatum_pending = true; }
 
 bool controls_set_microsteps(const uint16_t microsteps) {
   // Only adjust microstepping at standstill (IDLE or DISABLE), never mid-move.
