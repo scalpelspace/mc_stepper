@@ -180,10 +180,12 @@ static void led_status_run(void) {
 }
 
 static void sensors_run(void) {
+#if MC_STEPPER_USE_ABSOLUTE_ENCODER
   // Absolute angle sensor.
   as5047p_get_angle();
 #ifdef MC_STEPPER_FULL_CAN_TELEMETRY
   can_tx_absolute_encoder();
+#endif
 #endif
 }
 
