@@ -32,9 +32,6 @@
 // Full telemetry flood on CAN bus intended for debug/development purposes.
 #define MC_STEPPER_FULL_CAN_TELEMETRY
 
-#define MC_STEPPER_USE_ABSOLUTE_ENCODER 1 // Magnetic absolute encoder.
-#define MC_STEPPER_USE_RELATIVE_ENCODER 0 // AB quadrature encoder.
-
 // TMC2209 default configuration.
 #define MC_STEPPER_STEP_SIZE (16u)
 #define MC_STEPPER_RUN_CURRENT_MA (300u)

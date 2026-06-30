@@ -7,7 +7,6 @@
 /** Includes. *****************************************************************/
 
 #include "init.h"
-#include "ab_encoder_hal_tim.h"
 #include "as5047p_hal_spi.h"
 #include "can.h"
 #include "comm.h"
@@ -27,9 +26,6 @@
   (CAN_TX_STATE_TARGET_PERIOD_MS / CAN_TX_STATE_TASK_PERIOD_MS) // Trigger.
 
 /** Private variables. ********************************************************/
-
-// Sensor variables.
-static ab_encoder_t ab_encoder = {0};
 
 // Encoder position tracking (multi-turn unwrapped).
 static float s_prev_raw_rad = 0.0f;
@@ -180,12 +176,10 @@ static void led_status_run(void) {
 }
 
 static void sensors_run(void) {
-#if MC_STEPPER_USE_ABSOLUTE_ENCODER
   // Absolute angle sensor.
   as5047p_get_angle();
 #ifdef MC_STEPPER_FULL_CAN_TELEMETRY
   can_tx_absolute_encoder();
-#endif
 #endif
 }
 
@@ -276,13 +270,8 @@ void mc_stepper_init(void) {
   ws2812b_update();
 
   // Sensors.
-#if MC_STEPPER_USE_ABSOLUTE_ENCODER
   as5047p_init(0x01, 0x00);
   HAL_Delay(1);
-#endif
-#if MC_STEPPER_USE_RELATIVE_ENCODER
-  ab_encoder_init(&ab_encoder, &htim2);
-#endif
 
   // Closed-loop controls. (Must be init before tmc2209_init()).
   controls_init();

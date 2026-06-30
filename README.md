@@ -26,9 +26,6 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
       * [2.3.1 Timer Calculations](#231-timer-calculations)
       * [2.3.2 Nested Vectored Interrupt Controller (NVIC)](#232-nested-vectored-interrupt-controller-nvic)
   * [3 AS5147P Magnetic Rotary Encoder](#3-as5147p-magnetic-rotary-encoder)
-    * [3.1 Background](#31-background)
-  * [4 AB (Quadrature) Encoder](#4-ab-quadrature-encoder)
-    * [4.1 Background](#41-background)
   * [Third-Party Licenses](#third-party-licenses)
 <!-- TOC -->
 
@@ -82,8 +79,8 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 | PB3         | `SPI1_SCK`              |                            | AS5147P Pin 2: `CLK`             |                                       |
 | PB4         | `SPI1_MISO`             |                            | AS5147P Pin 3: `MISO`            |                                       |
 | PB5         | `SPI1_MOSI`             |                            | AS5147P Pin 4: `MOSI`            |                                       |
-| PA1         | `TIM2_CH1`              | TIM2 encoder mode          | GPIO Breakout: (ie Encoder: `A`) | Reserved GPIO breakout (PA1).         |
-| PA5         | `TIM2_CH2`              | TIM2 encoder mode          | GPIO Breakout: (ie Encoder: `B`) | Reserved GPIO breakout (PA5).         |
+| PA1         | `Reserved`              |                            | GPIO Breakout: (ie Encoder: `A`) | Reserved GPIO breakout (PA1).         |
+| PA5         | `Reserved`              |                            | GPIO Breakout: (ie Encoder: `B`) | Reserved GPIO breakout (PA5).         |
 | PA4         | `DAC1_OUT1`             |                            | TMC2209 Pin 17: `VREF` circuit   |                                       |
 | PA7         | `GPIO_Output`           | Hardware pull-up, set high | TMC2209 Pin 2: `ENN`             |                                       |
 | PA2         | `USART2_TX`             | Single Wire (Half-Duplex)  | TMC2209 Pin 14: `PDN_UART`       |                                       |
@@ -156,25 +153,6 @@ Thus, the prescaler, $PSC = 80 - 1$.
 > later development uses the AS5147P. Firmware is cross compatible for both the
 > AS5047P/AS5147P, however source files maintain the use of the "AS5047P"
 > naming.
-
-### 3.1 Background
-
----
-
-## 4 AB (Quadrature) Encoder
-
-PA5 and PA1 are designated as GPIO breakouts, with default configration for a AB
-quadrature encoder.
-
-### 4.1 Background
-
-The AB quadrature encoder is implemented via `TIM2` (16-bit) on the STM32L432KC.
-
-Default configuration:
-
-- 3.3 V logic signal.
-- AB signals: Rising edge.
-- AB low-pass input filter value: 4.
 
 ---
 
