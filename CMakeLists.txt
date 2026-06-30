@@ -54,7 +54,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/mc_stepper_driver/can_driver/can_id_allocation_dbc.c
         Core/mc_stepper_driver/can_driver/can_id_allocator.c
         Core/mc_stepper_driver/mc_stepper_can_dbc.c
-        Core/Src/abi_encoder_hal_tim.c
+        Core/Src/ab_encoder_hal_tim.c
         Core/Src/as5047p_hal_spi.c
         Core/Src/callbacks.c
         Core/Src/can.c

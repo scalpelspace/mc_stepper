@@ -7,7 +7,7 @@
 /** Includes. *****************************************************************/
 
 #include "init.h"
-#include "abi_encoder_hal_tim.h"
+#include "ab_encoder_hal_tim.h"
 #include "as5047p_hal_spi.h"
 #include "can.h"
 #include "comm.h"
@@ -29,7 +29,7 @@
 /** Private variables. ********************************************************/
 
 // Sensor variables.
-static abi_encoder_t abi_encoder = {0};
+static ab_encoder_t ab_encoder = {0};
 
 // Encoder position tracking (multi-turn unwrapped).
 static float s_prev_raw_rad = 0.0f;
@@ -279,7 +279,7 @@ void mc_stepper_init(void) {
   HAL_Delay(1);
 #endif
 #if MC_STEPPER_USE_RELATIVE_ENCODER
-  abi_encoder_init(&abi_encoder, &htim2);
+  ab_encoder_init(&ab_encoder, &htim2);
 #endif
 
   // Closed-loop controls. (Must be init before tmc2209_init()).
