@@ -7,6 +7,7 @@
 /** Includes. *****************************************************************/
 
 #include "controls.h"
+#include "as5047p_hal_spi.h"
 #include "configuration.h"
 #include "pid.h"
 #include "stm32l4xx.h"
@@ -50,6 +51,22 @@ static float s_profile_vel = 0.0f; // Planned velocity (rad/s).
 static int32_t s_ol_pos_steps = 0; // Open-loop commanded position (microsteps).
 static bool s_ol_dir = true;       // Move direction (true = forward).
 static float s_ol_step_vel = 0.0f; // Step-domain rate (steps/s).
+
+// Encoder position tracking (multi-turn unwrapped).
+static float s_prev_raw_rad = 0.0f;
+static float s_pos_unwrapped_rad = 0.0f;
+static bool s_encoder_initialized = false;
+
+// Step output: direction change inhibit state. s_last_dir_valid forces the
+// first bridge pass to assert DIR explicitly, since the TMC2209 DIR pin powers
+// up in an undefined state that may not match s_last_dir's default.
+static bool s_last_dir = true;
+static bool s_last_dir_valid = false;
+static bool s_dir_inhibit = false;
+
+// Software zero (re-datum) request. Set from any context (incl. CAN ISR),
+// serviced at the top of the next controls tick when state is at standstill.
+static volatile bool s_redatum_pending = false;
 
 /** Public variables. *********************************************************/
 
@@ -275,6 +292,10 @@ float controls_get_max_accel_rad_s2(void) { return s_max_accel_rad_s2; }
 float controls_get_max_velocity_rad_s(void) { return s_max_velocity_rad_s; }
 
 void controls_init(void) {
+  // Sensors.
+  as5047p_init(0x01, 0x00);
+  HAL_Delay(1);
+
   // Calculate step size config.
   steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
                   (2.0f * (float)M_PI);
@@ -308,6 +329,75 @@ void controls_init(void) {
   // Bring the FSM out of DISABLE so standstill-gated APIs (e.g. set_microsteps)
   // can run after init.
   controls_state = CONTROLS_IDLE;
+}
+
+void controls_run(void) {
+  // Update sensor data.
+  as5047p_get_angle();
+
+  // Convert angle to radians at the source.
+  // as5047p_angle_step is the raw 14-bit count (0-16383).
+  const float raw_rad =
+      (float)as5047p_angle_step * (2.0f * (float)M_PI / 16384.0f);
+
+  if (!s_encoder_initialized) {
+    s_prev_raw_rad = raw_rad;
+    s_pos_unwrapped_rad = raw_rad;
+    s_encoder_initialized = true;
+  }
+
+  // Wrap detection threshold is half a revolution in radians.
+  float delta = raw_rad - s_prev_raw_rad;
+  if (delta > (float)M_PI)
+    delta -= 2.0f * (float)M_PI;
+  if (delta < -(float)M_PI)
+    delta += 2.0f * (float)M_PI;
+
+  s_pos_unwrapped_rad += delta;
+  s_prev_raw_rad = raw_rad;
+
+  // Service pending software-zero request. Only apply at standstill so the
+  // setpoint frame is stable while the loop is actively commanding steps.
+  if (s_redatum_pending) {
+    if (controls_state == CONTROLS_DISABLE || controls_state == CONTROLS_IDLE ||
+        controls_state == CONTROLS_ON_POSITION_TARGET) {
+      const float shift = -s_pos_unwrapped_rad;
+      s_pos_unwrapped_rad = 0.0f;
+      controls_redatum_shift(shift);
+    }
+    s_redatum_pending = false;
+  }
+
+  // Write sensor data for the controls loop, controls_sensors are volatile.
+  controls_position_meas_rad = s_pos_unwrapped_rad;
+
+  // Run the closed-loop control state machine.
+  controls_state_machine();
+
+  // Bridge: controls_step_rate_command (signed float, steps/s) to hardware.
+  // Direction changes require a one-tick inhibit so the DIR pin is settled
+  // before the next step edge. The TMC2209 datasheet requires DIR to be stable
+  // >= 20 ns before a rising STEP edge; stopping for one full 1 ms tick is far
+  // more than sufficient and avoids a missed-step on reversal.
+  const float sr = controls_step_rate_command; // Snapshot the volatile once.
+  const bool new_dir = (sr >= 0.0f);
+  const uint32_t freq_hz = (uint32_t)fabsf(sr);
+
+  if (new_dir != s_last_dir || !s_last_dir_valid) {
+    tmc2209_step_set_freq_hz(0); // Halt steps immediately.
+    tmc2209_step_direction(new_dir);
+    s_last_dir = new_dir;
+    s_last_dir_valid = true;
+    s_dir_inhibit = true; // Suppress output for one additional tick.
+    return;
+  }
+
+  if (s_dir_inhibit) {
+    s_dir_inhibit = false; // One dead tick elapsed; resume next call.
+    return;
+  }
+
+  tmc2209_step_set_freq_hz(freq_hz);
 }
 
 void controls_redatum_shift(const float delta_rad) {

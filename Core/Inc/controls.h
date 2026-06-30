@@ -109,6 +109,8 @@ float controls_get_max_velocity_rad_s(void);
 
 void controls_init(void);
 
+void controls_run(void);
+
 void controls_set_setpoint(mc_stepper_command_t command);
 
 /**
