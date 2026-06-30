@@ -60,7 +60,7 @@ can_node_id_t can_node_id = DEFAULT_CAN_NODE_ID;
  * @param header Pointer to the CAN RX header.
  * @param data Pointer to the raw data of the CAN message.
  */
-void process_can_message(CAN_RxHeaderTypeDef *header, uint8_t *data) {
+static void process_can_message(CAN_RxHeaderTypeDef *header, uint8_t *data) {
   // CAN ID allocatee callbacks.
   // TODO: Overhead here, reduce via control flag or extended state variable?
   const can_header_t l_header = {
@@ -96,7 +96,7 @@ void process_can_message(CAN_RxHeaderTypeDef *header, uint8_t *data) {
   }
 }
 
-void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
+static void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER];
 
@@ -204,7 +204,7 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   }
 }
 
-void can_rx_command_stepper_zero(can_header_t *header, uint8_t *data) {
+static void can_rx_command_stepper_zero(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER_ZERO];
 
@@ -224,7 +224,8 @@ void can_rx_command_stepper_zero(can_header_t *header, uint8_t *data) {
   controls_request_zero();
 }
 
-void can_rx_command_motion_config_set(can_header_t *header, uint8_t *data) {
+static void can_rx_command_motion_config_set(can_header_t *header,
+                                             uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_SET];
 
@@ -261,7 +262,8 @@ void can_rx_command_motion_config_set(can_header_t *header, uint8_t *data) {
   motion_pending = true;
 }
 
-void can_rx_command_motion_config_get(can_header_t *header, uint8_t *data) {
+static void can_rx_command_motion_config_get(can_header_t *header,
+                                             uint8_t *data) {
   const can_message_t *req =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_GET];
 
@@ -289,7 +291,8 @@ void can_rx_command_motion_config_get(can_header_t *header, uint8_t *data) {
   can_send_message_raw32(&HCAN, msg, sigs);
 }
 
-void can_rx_command_current_config_set(can_header_t *header, uint8_t *data) {
+static void can_rx_command_current_config_set(can_header_t *header,
+                                              uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_SET];
 
@@ -323,7 +326,8 @@ void can_rx_command_current_config_set(can_header_t *header, uint8_t *data) {
   currents_pending = true;
 }
 
-void can_rx_command_current_config_get(can_header_t *header, uint8_t *data) {
+static void can_rx_command_current_config_get(can_header_t *header,
+                                              uint8_t *data) {
   const can_message_t *req =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_GET];
 
@@ -354,7 +358,7 @@ void can_rx_command_current_config_get(can_header_t *header, uint8_t *data) {
   can_send_message_raw32(&HCAN, msg, sigs);
 }
 
-void can_rx_controls_config_set(can_header_t *header, uint8_t *data) {
+static void can_rx_controls_config_set(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_SET];
 
@@ -376,7 +380,7 @@ void can_rx_controls_config_set(can_header_t *header, uint8_t *data) {
   controls_set_gains(k_p, k_i, k_d);
 }
 
-void can_rx_controls_config_get(can_header_t *header, uint8_t *data) {
+static void can_rx_controls_config_get(can_header_t *header, uint8_t *data) {
   const can_message_t *req =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_GET];
 
@@ -404,7 +408,7 @@ void can_rx_controls_config_get(can_header_t *header, uint8_t *data) {
   can_send_message_raw32(&HCAN, msg, sigs);
 }
 
-void can_rx_stallguard_set(can_header_t *header, uint8_t *data) {
+static void can_rx_stallguard_set(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_SET];
 
@@ -427,7 +431,7 @@ void can_rx_stallguard_set(can_header_t *header, uint8_t *data) {
   stallguard_pending = true;
 }
 
-void can_rx_stallguard_get(can_header_t *header, uint8_t *data) {
+static void can_rx_stallguard_get(can_header_t *header, uint8_t *data) {
   const can_message_t *req =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_GET];
 
@@ -458,7 +462,7 @@ void can_rx_stallguard_get(can_header_t *header, uint8_t *data) {
   can_send_message_raw32(&HCAN, msg, sigs);
 }
 
-void can_rx_datetime_set(can_header_t *header, uint8_t *data) {
+static void can_rx_datetime_set(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_DATETIME_SET];
 
@@ -474,7 +478,7 @@ void can_rx_datetime_set(can_header_t *header, uint8_t *data) {
   set_time(hours, minutes, seconds);
 }
 
-void can_rx_datetime_get(can_header_t *header, uint8_t *data) {
+static void can_rx_datetime_get(can_header_t *header, uint8_t *data) {
   RTC_DateTypeDef sDate = {0};
   RTC_TimeTypeDef sTime = {0};
 
@@ -493,7 +497,7 @@ void can_rx_datetime_get(can_header_t *header, uint8_t *data) {
   can_send_message_raw32(&HCAN, msg, values);
 }
 
-void can_rx_version_get(can_header_t *header, uint8_t *data) {
+static void can_rx_version_get(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_VERSION_RESPONSE];
   const uint32_t values[] = {
