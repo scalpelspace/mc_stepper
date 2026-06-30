@@ -4,9 +4,6 @@
 
 STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 
-- CAN bus and UART enabled stepper motor.
-- Closed-loop position and speed control.
-
 ---
 
 <details markdown="1">
@@ -42,7 +39,6 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 | STM32L432KC              | STMicroelectronics                   | 32-bit MCU              |        1 |       |
 | TJA1057BTK               | NXP USA Inc.                         | CAN Bus Transceiver     |        1 |       |
 | AS5147P                  | ams-OSRAM USA INC.                   | Magnetic Rotary Encoder |        1 |       |
-| (External)               | (Various)                            | AB Quadrature Encoder   |        1 |       |
 | TMC2209                  | Analog Devices Inc./Maxim Integrated | Bipolar Motor Driver    |        1 |       |
 | WS2812B-2020             | (Various)                            | PWM Addressable RGB LED |        1 |       |
 
