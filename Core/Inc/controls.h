@@ -62,18 +62,80 @@ extern volatile float controls_step_rate_command; // steps/s, control output.
 
 /** Public functions. *********************************************************/
 
+/**
+ * @brief Initialize the controls module.
+ *
+ * Initializes the encoder, PID stage with default gains/limits, and leaves the
+ * FSM in CONTROLS_IDLE. Must be called before tmc2209_init().
+ */
+void controls_init(void);
+
+/**
+ * @brief Periodic control task, expected to execute every CONTROLS_PERIOD_MS.
+ *
+ * Samples the sensors, runs the control mode cascade and updates the H-bridge.
+ */
+void controls_run(void);
+
+/**
+ * @brief Set the active control mode and target.
+ *
+ * Switching mode or moving the target re-seeds the loop and enters
+ * CONTROLS_EXECUTING. A command identical to the active one is ignored so
+ * heartbeat retransmissions do not disturb the loop. Ignored while faulted.
+ */
+void controls_set_command(mc_stepper_command_t command);
+
+/**
+ * @brief Shift the controls-layer position frame by delta_rad.
+ *
+ * @param delta_rad Position delta in radians.
+ *
+ * Adds delta_rad to the active position setpoint (and to the pending command
+ * setpoint when in POSITION mode), then re-inits both PIDs to avoid a
+ * derivative kick across the frame change.
+ *
+ * Pair with a matching shift of the sensor-side unwrapped position so the
+ * physical target is preserved.
+ *
+ * Not safe to call while CONTROLS_EXECUTING or CONTROLS_START. The caller must
+ * gate on a standstill state (DISABLE, IDLE or ON_POSITION_TARGET).
+ */
+void controls_redatum_shift(float delta_rad);
+
+/**
+ * @brief Set the control's utilized microstep size at runtime.
+ *
+ * Only adjustable standstill (IDLE or DISABLE), never mid-move.
+ *
+ * @param microsteps Desired microsteps per full step.
+ */
 bool controls_set_microsteps(uint16_t microsteps);
+
+/**
+ * @brief Read back the active microstep resolution.
+ *
+ * @return Microsteps per full step.
+ */
+uint16_t controls_get_microsteps(void);
 
 /**
  * @brief Set the step-rate acceleration limit at runtime.
  *
  * Converts a motor-shaft acceleration (rad/s^2) to the internal steps/s^2
- * limit used by the slew-rate filter. Call after controls_init() and
- * whenever microstep configuration changes.
+ * limit used by the slew-rate filter. Call after controls_init() and whenever
+ * microstep configuration changes.
  *
  * @param max_accel_rad_s2 Desired acceleration limit in rad/s^2.
  */
 void controls_set_max_accel_rad_s2(float max_accel_rad_s2);
+
+/**
+ * @brief Read back the motion acceleration limit.
+ *
+ * @return Acceleration limit in rad/s^2.
+ */
+float controls_get_max_accel_rad_s2(void);
 
 /**
  * @brief Set the trapezoidal motion profile peak velocity.
@@ -87,41 +149,11 @@ void controls_set_max_accel_rad_s2(float max_accel_rad_s2);
 void controls_set_max_velocity_rad_s(float max_velocity_rad_s);
 
 /**
- * @brief Read back the active microstep resolution.
- *
- * @return Microsteps per full step.
- */
-uint16_t controls_get_microsteps(void);
-
-/**
- * @brief Read back the motion acceleration limit.
- *
- * @return Acceleration limit in rad/s^2.
- */
-float controls_get_max_accel_rad_s2(void);
-
-/**
  * @brief Read back the motion profile peak velocity.
  *
  * @return Peak velocity in rad/s.
  */
 float controls_get_max_velocity_rad_s(void);
-
-void controls_init(void);
-
-void controls_run(void);
-
-void controls_set_setpoint(mc_stepper_command_t command);
-
-/**
- * @brief Read back the active control mode.
- *
- * Reflects the mode of the command currently being executed (POSITION_RELATIVE
- * is resolved to POSITION once a move starts). Safe to call from any context.
- *
- * @return Active control_mode_t.
- */
-control_mode_t controls_get_mode(void);
 
 /**
  * @brief Live-tune the position PID gains.
@@ -141,22 +173,13 @@ void controls_set_gains(float k_p, float k_i, float k_d);
 void controls_get_gains(float *k_p, float *k_i, float *k_d);
 
 /**
- * @brief Shift the controls-layer position frame by delta_rad.
+ * @brief Read back the active control mode.
  *
- * @param delta_rad Position delta in radians.
+ * Reflects the mode of the command currently being executed (POSITION_RELATIVE
+ * is resolved to POSITION once a move starts). Safe to call from any context.
  *
- * Adds delta_rad to the active position setpoint (and to the pending command
- * setpoint when in POSITION mode), then re-inits both PIDs to avoid a
- * derivative kick across the frame change.
- *
- * Pair with a matching shift of the sensor-side unwrapped position so the
- * physical target is preserved.
- *
- * Not safe to call while CONTROLS_EXECUTING or CONTROLS_START. The caller must
- * gate on a standstill state (DISABLE, IDLE or ON_POSITION_TARGET).
+ * @return Active control_mode_t.
  */
-void controls_redatum_shift(float delta_rad);
-
-void controls_state_machine(void);
+control_mode_t controls_get_mode(void);
 
 #endif

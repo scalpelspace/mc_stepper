@@ -156,7 +156,7 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
         .mode = CONTROL_MODE_POSITION,
         .setpoint = target_position_rad,
     };
-    controls_set_setpoint(cmd);
+    controls_set_command(cmd);
     break;
   }
 
@@ -165,7 +165,7 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
         .mode = CONTROL_MODE_SPEED,
         .setpoint = target_velocity_rad_s,
     };
-    controls_set_setpoint(cmd);
+    controls_set_command(cmd);
     break;
   }
 
@@ -174,7 +174,7 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
         .mode = CONTROL_MODE_POSITION_RELATIVE,
         .setpoint = target_position_rad,
     };
-    controls_set_setpoint(cmd);
+    controls_set_command(cmd);
     break;
   }
 
@@ -183,7 +183,7 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
         .mode = CONTROL_MODE_POSITION_OPEN_LOOP,
         .setpoint = target_position_rad,
     };
-    controls_set_setpoint(cmd);
+    controls_set_command(cmd);
     break;
   }
 
@@ -194,7 +194,7 @@ void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
         .mode = CONTROL_MODE_SPEED,
         .setpoint = 0.0f,
     };
-    controls_set_setpoint(cmd);
+    controls_set_command(cmd);
     break;
   }
 

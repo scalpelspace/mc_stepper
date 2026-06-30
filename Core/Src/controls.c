@@ -150,6 +150,40 @@ static void profile_step(const float target) {
   s_profile_pos += s_profile_vel * dt;
 }
 
+static bool on_position_target(const mc_stepper_command_t command) {
+  // Open-loop: the move is complete once the exact microstep budget has been
+  // emitted by the driver. No encoder is consulted.
+  if (command.mode == CONTROL_MODE_POSITION_OPEN_LOOP) {
+    return (tmc2209_step_remaining() == 0u);
+  }
+
+  // Only meaningful for position moves.
+  if (command.mode != CONTROL_MODE_POSITION)
+    return false;
+
+  // Choose hysteresis thresholds depending on current latched state.
+  const float pos_tol = latched_on_target ? POSITION_TOLERANCE_EXIT_RAD
+                                          : POSITION_TOLERANCE_ENTER_RAD;
+
+  const float pos_err = command.setpoint - controls_position_meas_rad;
+
+  const bool in_band = (fabsf(pos_err) <= pos_tol);
+
+  if (in_band) {
+    if (on_target_ticks < ON_TARGET_DWELL_TICKS)
+      on_target_ticks++;
+  } else {
+    // Reset position on target tick counter and latch variable.
+    on_target_ticks = 0;
+    latched_on_target = false;
+  }
+  if (on_target_ticks >= ON_TARGET_DWELL_TICKS) {
+    latched_on_target = true;
+  }
+
+  return latched_on_target;
+}
+
 static void control_loop(const mc_stepper_command_t command) {
   float step_rate_target;
 
@@ -214,82 +248,105 @@ static void control_loop(const mc_stepper_command_t command) {
   controls_step_rate_command = step_rate_slew_limit(step_rate_target);
 }
 
-static bool on_position_target(const mc_stepper_command_t command) {
-  // Open-loop: the move is complete once the exact microstep budget has been
-  // emitted by the driver. No encoder is consulted.
-  if (command.mode == CONTROL_MODE_POSITION_OPEN_LOOP) {
-    return (tmc2209_step_remaining() == 0u);
-  }
+static void controls_state_machine(void) {
+  mc_stepper_command_t cmd = {0};
 
-  // Only meaningful for position moves.
-  if (command.mode != CONTROL_MODE_POSITION)
-    return false;
+  switch (controls_state) {
+  case CONTROLS_DISABLE:
+    controls_step_rate_command = 0.0f; // Safety.
+    break;
 
-  // Choose hysteresis thresholds depending on current latched state.
-  const float pos_tol = latched_on_target ? POSITION_TOLERANCE_EXIT_RAD
-                                          : POSITION_TOLERANCE_ENTER_RAD;
+  case CONTROLS_IDLE:
+    // Wait for new command.
+    break;
 
-  const float pos_err = command.setpoint - controls_position_meas_rad;
+  case CONTROLS_START:
+    command_snapshot(&cmd);
 
-  const bool in_band = (fabsf(pos_err) <= pos_tol);
+    // Relative position control.
+    if (cmd.mode == CONTROL_MODE_POSITION_RELATIVE) {
+      cmd.setpoint += controls_position_meas_rad; // offset -> absolute rad.
+      cmd.mode = CONTROL_MODE_POSITION; // Treat as absolute from here on.
+      control_command = cmd;            // Persist resolved absolute target.
+    }
 
-  if (in_band) {
-    if (on_target_ticks < ON_TARGET_DWELL_TICKS)
-      on_target_ticks++;
-  } else {
+    if (cmd.mode == CONTROL_MODE_POSITION_OPEN_LOOP) {
+      // True open-loop: plan an exact microstep budget toward the target in the
+      // internal (encoder-independent) frame. Account for any steps still
+      // pending from a preempted move so the new budget starts from the actual
+      // commanded position. The driver emits exactly this many steps.
+      const uint32_t pending = tmc2209_step_remaining();
+      const int32_t current_steps =
+          s_ol_pos_steps - (s_ol_dir ? (int32_t)pending : -(int32_t)pending);
+      const int32_t target_steps =
+          (int32_t)lroundf(cmd.setpoint * steps_per_rad);
+      const int32_t delta = target_steps - current_steps;
+      s_ol_dir = (delta >= 0);
+      tmc2209_step_load_count((uint32_t)(delta >= 0 ? delta : -delta));
+      s_ol_pos_steps = target_steps;
+      s_ol_step_vel = 0.0f;
+      prev_mode = cmd.mode;
+    } else {
+      // Speed/closed-loop position are rate-controlled and run unbounded.
+      tmc2209_step_clear_count();
+
+      if (cmd.mode != prev_mode) {
+        pid_init(&position_pid); // Reset, gains uneffected by init.
+        // Seed prev_measurement so the first derivative tick does not see a
+        // (measurement - 0) jump and saturate the output.
+        position_pid.prev_measurement = controls_position_meas_rad;
+        prev_mode = cmd.mode;
+      }
+
+      // Reset the trapezoidal profile to begin from the current measured
+      // position at rest. The new move plans from here.
+      profile_reset();
+    }
+
+    controls_step_rate_command = 0.0f; // Safety.
+
     // Reset position on target tick counter and latch variable.
     on_target_ticks = 0;
     latched_on_target = false;
-  }
-  if (on_target_ticks >= ON_TARGET_DWELL_TICKS) {
-    latched_on_target = true;
-  }
 
-  return latched_on_target;
+    controls_state = CONTROLS_EXECUTING;
+    break;
+
+  case CONTROLS_EXECUTING:
+    command_snapshot(&cmd);
+
+    control_loop(cmd);
+    if (on_position_target(cmd)) {
+      // Transition state.
+      controls_state = CONTROLS_ON_POSITION_TARGET;
+    }
+    break;
+
+  case CONTROLS_ON_POSITION_TARGET:
+    command_snapshot(&cmd);
+
+    // Stop emitting steps. The TMC2209 holds position via IHOLD current, and
+    // with no STEP edges the driver also relaxes to hold current after
+    // IHOLDDELAY. Re-engaging the loop on drift relies on the on-target
+    // hysteresis exit band.
+    controls_step_rate_command = 0.0f;
+    controls_velocity_setpoint = 0.0f;
+
+    // If there is drift outside the exit band, resume normal execution.
+    if (!on_position_target(cmd)) {
+      controls_state = CONTROLS_EXECUTING;
+    }
+    break;
+
+  case CONTROLS_FAULT:
+    controls_step_rate_command = 0.0f; // Safety.
+    break;
+  default:
+    break;
+  }
 }
 
 /** Public functions. *********************************************************/
-
-bool controls_set_microsteps(const uint16_t microsteps) {
-  // Only adjust microstepping at standstill (IDLE or DISABLE), never mid-move.
-  if (controls_state == CONTROLS_IDLE || controls_state == CONTROLS_DISABLE) {
-    const float old_steps_per_rad = steps_per_rad;
-    microstep_config = microsteps;
-    steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
-                    (2.0f * (float)M_PI);
-    // Re-derive the steps/s^2 limit so the rad/s^2 envelope is preserved.
-    if (s_max_accel_rad_s2 > 0.0f) {
-      s_max_accel_step = s_max_accel_rad_s2 * steps_per_rad;
-    }
-    // Rescale the internal open-loop position so it keeps the same rad value
-    // across a microstep change.
-    if (old_steps_per_rad > 0.0f) {
-      s_ol_pos_steps = (int32_t)lroundf((float)s_ol_pos_steps *
-                                        (steps_per_rad / old_steps_per_rad));
-    }
-    return true;
-  }
-  return false;
-}
-
-void controls_set_max_accel_rad_s2(const float max_accel_rad_s2) {
-  // Convert rad/s^2 to steps/s^2 using the current steps_per_rad calibration.
-  // steps_per_rad is valid after controls_init() or controls_set_microsteps().
-  s_max_accel_rad_s2 = max_accel_rad_s2;
-  s_max_accel_step = max_accel_rad_s2 * steps_per_rad;
-}
-
-void controls_set_max_velocity_rad_s(const float max_velocity_rad_s) {
-  if (max_velocity_rad_s > 0.0f) {
-    s_max_velocity_rad_s = max_velocity_rad_s;
-  }
-}
-
-uint16_t controls_get_microsteps(void) { return microstep_config; }
-
-float controls_get_max_accel_rad_s2(void) { return s_max_accel_rad_s2; }
-
-float controls_get_max_velocity_rad_s(void) { return s_max_velocity_rad_s; }
 
 void controls_init(void) {
   // Sensors.
@@ -400,6 +457,29 @@ void controls_run(void) {
   tmc2209_step_set_freq_hz(freq_hz);
 }
 
+void controls_set_command(const mc_stepper_command_t command) {
+  // Gate on change: if the incoming command matches the active one, do not
+  // disturb the state machine. Repeated retransmissions of the same target
+  // (commander heartbeat, enable-hold, periodic resend) would otherwise kick
+  // the state back to CONTROLS_START every frame, resetting the on-target dwell
+  // counter and preventing the ON_POSITION_TARGET latch from ever closing.
+  //
+  // Note: POSITION_RELATIVE is resolved to POSITION inside CONTROLS_START, so
+  // a repeated identical POSITION_RELATIVE frame will still mismatch here (mode
+  // POSITION_RELATIVE vs stored POSITION) and re-trigger a fresh move, which
+  // matches the one-shot semantics of a relative command.
+  if (command.mode == control_command.mode &&
+      fabsf(command.setpoint - control_command.setpoint) <=
+          SETPOINT_EPSILON_RAD) {
+    return;
+  }
+
+  __disable_irq();
+  control_command = command;
+  controls_state = CONTROLS_START; // Transition state.
+  __enable_irq();
+}
+
 void controls_redatum_shift(const float delta_rad) {
   __disable_irq();
   controls_position_setpoint += delta_rad;
@@ -413,6 +493,47 @@ void controls_redatum_shift(const float delta_rad) {
   position_pid.prev_measurement += delta_rad;
   __enable_irq();
 }
+
+bool controls_set_microsteps(const uint16_t microsteps) {
+  // Only adjust microstepping at standstill (IDLE or DISABLE), never mid-move.
+  if (controls_state == CONTROLS_IDLE || controls_state == CONTROLS_DISABLE) {
+    const float old_steps_per_rad = steps_per_rad;
+    microstep_config = microsteps;
+    steps_per_rad = ((float)full_steps_per_rev * (float)microstep_config) /
+                    (2.0f * (float)M_PI);
+    // Re-derive the steps/s^2 limit so the rad/s^2 envelope is preserved.
+    if (s_max_accel_rad_s2 > 0.0f) {
+      s_max_accel_step = s_max_accel_rad_s2 * steps_per_rad;
+    }
+    // Rescale the internal open-loop position so it keeps the same rad value
+    // across a microstep change.
+    if (old_steps_per_rad > 0.0f) {
+      s_ol_pos_steps = (int32_t)lroundf((float)s_ol_pos_steps *
+                                        (steps_per_rad / old_steps_per_rad));
+    }
+    return true;
+  }
+  return false;
+}
+
+uint16_t controls_get_microsteps(void) { return microstep_config; }
+
+void controls_set_max_accel_rad_s2(const float max_accel_rad_s2) {
+  // Convert rad/s^2 to steps/s^2 using the current steps_per_rad calibration.
+  // steps_per_rad is valid after controls_init() or controls_set_microsteps().
+  s_max_accel_rad_s2 = max_accel_rad_s2;
+  s_max_accel_step = max_accel_rad_s2 * steps_per_rad;
+}
+
+float controls_get_max_accel_rad_s2(void) { return s_max_accel_rad_s2; }
+
+void controls_set_max_velocity_rad_s(const float max_velocity_rad_s) {
+  if (max_velocity_rad_s > 0.0f) {
+    s_max_velocity_rad_s = max_velocity_rad_s;
+  }
+}
+
+float controls_get_max_velocity_rad_s(void) { return s_max_velocity_rad_s; }
 
 void controls_set_gains(const float k_p, const float k_i, const float k_d) {
   __disable_irq();
@@ -441,125 +562,4 @@ control_mode_t controls_get_mode(void) {
   const control_mode_t mode = control_command.mode;
   __enable_irq();
   return mode;
-}
-
-void controls_set_setpoint(const mc_stepper_command_t command) {
-  // Gate on change: if the incoming command matches the active one, do not
-  // disturb the state machine. Repeated retransmissions of the same target
-  // (commander heartbeat, enable-hold, periodic resend) would otherwise kick
-  // the state back to CONTROLS_START every frame, resetting the on-target dwell
-  // counter and preventing the ON_POSITION_TARGET latch from ever closing.
-  //
-  // Note: POSITION_RELATIVE is resolved to POSITION inside CONTROLS_START, so
-  // a repeated identical POSITION_RELATIVE frame will still mismatch here (mode
-  // POSITION_RELATIVE vs stored POSITION) and re-trigger a fresh move, which
-  // matches the one-shot semantics of a relative command.
-  if (command.mode == control_command.mode &&
-      fabsf(command.setpoint - control_command.setpoint) <=
-          SETPOINT_EPSILON_RAD) {
-    return;
-  }
-
-  __disable_irq();
-  control_command = command;
-  controls_state = CONTROLS_START; // Transition state.
-  __enable_irq();
-}
-
-void controls_state_machine(void) {
-  mc_stepper_command_t cmd = {0};
-
-  switch (controls_state) {
-  case CONTROLS_DISABLE:
-    controls_step_rate_command = 0.0f; // Safety.
-    break;
-
-  case CONTROLS_IDLE:
-    // Wait for new command.
-    break;
-
-  case CONTROLS_START:
-    command_snapshot(&cmd);
-
-    // Relative position control.
-    if (cmd.mode == CONTROL_MODE_POSITION_RELATIVE) {
-      cmd.setpoint += controls_position_meas_rad; // offset -> absolute rad.
-      cmd.mode = CONTROL_MODE_POSITION; // Treat as absolute from here on.
-      control_command = cmd;            // Persist resolved absolute target.
-    }
-
-    if (cmd.mode == CONTROL_MODE_POSITION_OPEN_LOOP) {
-      // True open-loop: plan an exact microstep budget toward the target in the
-      // internal (encoder-independent) frame. Account for any steps still
-      // pending from a preempted move so the new budget starts from the actual
-      // commanded position. The driver emits exactly this many steps.
-      const uint32_t pending = tmc2209_step_remaining();
-      const int32_t current_steps =
-          s_ol_pos_steps - (s_ol_dir ? (int32_t)pending : -(int32_t)pending);
-      const int32_t target_steps =
-          (int32_t)lroundf(cmd.setpoint * steps_per_rad);
-      const int32_t delta = target_steps - current_steps;
-      s_ol_dir = (delta >= 0);
-      tmc2209_step_load_count((uint32_t)(delta >= 0 ? delta : -delta));
-      s_ol_pos_steps = target_steps;
-      s_ol_step_vel = 0.0f;
-      prev_mode = cmd.mode;
-    } else {
-      // Speed/closed-loop position are rate-controlled and run unbounded.
-      tmc2209_step_clear_count();
-
-      if (cmd.mode != prev_mode) {
-        pid_init(&position_pid); // Reset, gains uneffected by init.
-        // Seed prev_measurement so the first derivative tick does not see a
-        // (measurement - 0) jump and saturate the output.
-        position_pid.prev_measurement = controls_position_meas_rad;
-        prev_mode = cmd.mode;
-      }
-
-      // Reset the trapezoidal profile to begin from the current measured
-      // position at rest. The new move plans from here.
-      profile_reset();
-    }
-
-    controls_step_rate_command = 0.0f; // Safety.
-
-    // Reset position on target tick counter and latch variable.
-    on_target_ticks = 0;
-    latched_on_target = false;
-
-    controls_state = CONTROLS_EXECUTING;
-    break;
-
-  case CONTROLS_EXECUTING:
-    command_snapshot(&cmd);
-
-    control_loop(cmd);
-    if (on_position_target(cmd)) {
-      // Transition state.
-      controls_state = CONTROLS_ON_POSITION_TARGET;
-    }
-    break;
-
-  case CONTROLS_ON_POSITION_TARGET:
-    command_snapshot(&cmd);
-
-    // Stop emitting steps. The TMC2209 holds position via IHOLD current, and
-    // with no STEP edges the driver also relaxes to hold current after
-    // IHOLDDELAY. Re-engaging the loop on drift relies on the on-target
-    // hysteresis exit band.
-    controls_step_rate_command = 0.0f;
-    controls_velocity_setpoint = 0.0f;
-
-    // If there is drift outside the exit band, resume normal execution.
-    if (!on_position_target(cmd)) {
-      controls_state = CONTROLS_EXECUTING;
-    }
-    break;
-
-  case CONTROLS_FAULT:
-    controls_step_rate_command = 0.0f; // Safety.
-    break;
-  default:
-    break;
-  }
 }
