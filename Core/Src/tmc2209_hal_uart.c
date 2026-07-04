@@ -12,7 +12,7 @@
 
 // Software driven configurations.
 #define TMC2209_DEFAULT_ADDRESS (0u) // MS1, MS2 both ground.
-#define TMC2209_TIMEOUT_MS (10u)     // HAL blocking UART timeout.
+#define TMC2209_TIMEOUT_MS (2u)     // HAL blocking UART timeout.
 
 // Hardware datasheet defined configurations.
 #define TMC2209_SYNC (0x05)
