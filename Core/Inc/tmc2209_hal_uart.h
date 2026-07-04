@@ -66,6 +66,18 @@ HAL_StatusTypeDef tmc2209_set_current_sense(bool use_internal_rsense,
 HAL_StatusTypeDef tmc2209_set_sgthrs(uint8_t sgthrs);
 
 /**
+ * @brief Read the StallGuard load result (SG_RESULT register).
+ *
+ * Lower values indicate higher mechanical load; meaningful only while the motor
+ * is running above the TCOOLTHRS velocity.
+ *
+ * @param out Output 10-bit load result [0,1023]. Non-null.
+ *
+ * @return HAL_StatusTypeDef status.
+ */
+HAL_StatusTypeDef tmc2209_get_sg_result(uint16_t *out);
+
+/**
  * @brief Set the lower velocity threshold for StallGuard/CoolStep (TCOOLTHRS).
  *
  * StallGuard is only valid while TSTEP <= TCOOLTHRS (i.e. above the
@@ -79,15 +91,30 @@ HAL_StatusTypeDef tmc2209_set_sgthrs(uint8_t sgthrs);
 HAL_StatusTypeDef tmc2209_set_tcoolthrs(uint32_t tcoolthrs);
 
 /**
- * @brief Read the StallGuard load result (SG_RESULT register).
+ * @brief Read the global status register (GSTAT).
  *
- * Lower values indicate higher mechanical load; meaningful only while the motor
- * is running above the TCOOLTHRS velocity.
+ * Bit 0 (reset): IC has been reset since the last clear (tmc2209_clear_gstat()).
+ * Bit 1 (drv_err): latched driver error (overtemperature shutdown or short
+ * circuit); stays set until cleared.
+ * Bit 2 (uv_cp): charge pump undervoltage.
  *
- * @param out Output 10-bit load result [0,1023]. Non-null.
+ * @param out Output raw GSTAT register value (only bits [2:0] are defined).
+ * Non-null.
  *
  * @return HAL_StatusTypeDef status.
  */
-HAL_StatusTypeDef tmc2209_get_sg_result(uint16_t *out);
+HAL_StatusTypeDef tmc2209_get_gstat(uint32_t *out);
+
+/**
+ * @brief Read the driver status register (DRV_STATUS).
+ *
+ * Bits [7:0]: OTPW, OT, S2GA, S2GB, S2VSA, S2VSB, OLA, OLB (live status, not
+ * latched); the upper bits (CS_ACTUAL, STEALTH, STST) are not decoded here.
+ *
+ * @param out Output raw DRV_STATUS register value. Non-null.
+ *
+ * @return HAL_StatusTypeDef status.
+ */
+HAL_StatusTypeDef tmc2209_get_drv_status(uint32_t *out);
 
 #endif

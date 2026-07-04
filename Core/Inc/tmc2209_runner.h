@@ -99,7 +99,7 @@ HAL_StatusTypeDef tmc2209_set_step_size(uint16_t step_size);
  * @brief Configure StallGuard detection.
  *
  * Writes the SGTHRS threshold and gates StallGuard on velocity via TCOOLTHRS.
- * Performs blocking UART writes; call from the main context, not an ISR.
+ * Performs a blocking UART write, call from the main context, not an ISR.
  *
  * @param enable Enable StallGuard polling/detection.
  * @param sgthrs StallGuard threshold [0,255]; stall when SG_RESULT <= 2*sgthrs.
@@ -122,15 +122,40 @@ void tmc2209_stallguard_get(bool *enable, uint8_t *sgthrs, uint16_t *sg_result,
                             bool *stalled);
 
 /**
- * @brief Poll StallGuard once; detect a stall edge.
+ * @brief Poll StallGuard once, detect a stall edge.
  *
  * When enabled and stepping, reads SG_RESULT and updates the latched stall
- * state. Performs a blocking UART read; call from the main context (e.g. a
- * scheduler task), not an ISR.
+ * state. Performs a blocking UART read, call from the main context, not an ISR.
  *
  * @return true on a rising stall edge (newly stalled this call), else false.
  */
 bool tmc2209_stallguard_poll(void);
+
+/**
+ * @brief Poll the TMC2209 GSTAT/DRV_STATUS registers and cache a packed fault
+ * status word for CAN reporting.
+ *
+ *  Performs a blocking UART read, call from the main context, not an ISR. On a
+ * transient UART error the previously cached value is left unchanged
+ * (re-evaluate next cycle) rather than reporting a false clear.
+ *
+ * Packed bit layout (bits 15:11 reserved, always 0):
+ *   0 gstat.reset    1 gstat.drv_err  2 gstat.uv_cp
+ *   3 drv_status.otpw   4 drv_status.ot
+ *   5 drv_status.s2ga   6 drv_status.s2gb
+ *   7 drv_status.s2vsa  8 drv_status.s2vsb
+ *   9 drv_status.ola    10 drv_status.olb
+ *
+ * @return true if both registers were read successfully this call.
+ */
+bool tmc2209_status_poll(void);
+
+/**
+ * @brief Read back the last-polled packed TMC2209 fault status word.
+ *
+ * @return Packed status word, see tmc2209_status_poll() for the bit layout.
+ */
+uint16_t tmc2209_get_status(void);
 
 /**
  * @brief Set step frequency in steps/sec (updates compare interval).

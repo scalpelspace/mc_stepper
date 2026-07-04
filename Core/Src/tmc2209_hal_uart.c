@@ -207,24 +207,6 @@ HAL_StatusTypeDef tmc2209_set_tpowerdown(const uint8_t tpowerdown) {
   return tmc2209_write_reg(TMC2209_REG_TPOWERDOWN, v);
 }
 
-HAL_StatusTypeDef tmc2209_set_tcoolthrs(const uint32_t tcoolthrs) {
-  return tmc2209_write_reg(TMC2209_REG_TCOOLTHRS, tcoolthrs & 0x000FFFFFu);
-}
-
-HAL_StatusTypeDef tmc2209_set_sgthrs(const uint8_t sgthrs) {
-  return tmc2209_write_reg(TMC2209_REG_SGTHRS, (uint32_t)sgthrs);
-}
-
-HAL_StatusTypeDef tmc2209_get_sg_result(uint16_t *const out) {
-  uint32_t v = 0;
-  const HAL_StatusTypeDef st = tmc2209_read_reg(TMC2209_REG_SG_RESULT, &v);
-  if (st != HAL_OK)
-    return st;
-  if (out)
-    *out = (uint16_t)(v & 0x03FFu); // SG_RESULT is 10-bit.
-  return HAL_OK;
-}
-
 HAL_StatusTypeDef tmc2209_set_current_sense(const bool use_internal_rsense,
                                             const bool vsense_low_018v) {
   uint32_t gconf = 0;
@@ -252,4 +234,42 @@ HAL_StatusTypeDef tmc2209_set_current_sense(const bool use_internal_rsense,
     chopconf &= ~TMC2209_CHOPCONF_VSENSE_BIT;
 
   return tmc2209_write_reg(TMC2209_REG_CHOPCONF, chopconf);
+}
+
+HAL_StatusTypeDef tmc2209_set_sgthrs(const uint8_t sgthrs) {
+  return tmc2209_write_reg(TMC2209_REG_SGTHRS, (uint32_t)sgthrs);
+}
+
+HAL_StatusTypeDef tmc2209_get_sg_result(uint16_t *const out) {
+  uint32_t v = 0;
+  const HAL_StatusTypeDef st = tmc2209_read_reg(TMC2209_REG_SG_RESULT, &v);
+  if (st != HAL_OK)
+    return st;
+  if (out)
+    *out = (uint16_t)(v & 0x03FFu); // SG_RESULT is 10-bit.
+  return HAL_OK;
+}
+
+HAL_StatusTypeDef tmc2209_set_tcoolthrs(const uint32_t tcoolthrs) {
+  return tmc2209_write_reg(TMC2209_REG_TCOOLTHRS, tcoolthrs & 0x000FFFFFu);
+}
+
+HAL_StatusTypeDef tmc2209_get_gstat(uint32_t *const out) {
+  uint32_t v = 0;
+  const HAL_StatusTypeDef st = tmc2209_read_reg(TMC2209_REG_GSTAT, &v);
+  if (st != HAL_OK)
+    return st;
+  if (out)
+    *out = v & 0x00000007u; // GSTAT defines bits [2:0].
+  return HAL_OK;
+}
+
+HAL_StatusTypeDef tmc2209_get_drv_status(uint32_t *const out) {
+  uint32_t v = 0;
+  const HAL_StatusTypeDef st = tmc2209_read_reg(TMC2209_REG_DRV_STATUS, &v);
+  if (st != HAL_OK)
+    return st;
+  if (out)
+    *out = v;
+  return HAL_OK;
 }

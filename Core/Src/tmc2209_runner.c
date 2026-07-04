@@ -51,6 +51,9 @@ static volatile uint8_t s_sgthrs = 0;
 static volatile uint16_t s_sg_result = 0;
 static volatile bool s_sg_stalled = false;
 
+// Cached packed TMC2209 fault status, see tmc2209_status_poll() for layout.
+static volatile uint16_t s_tmc2209_status = 0;
+
 /** User implementations into STM32 HAL (overwrite weak HAL functions). *******/
 
 void HAL_TIM_OC_DelayElapsedCallback_tmc2209(TIM_HandleTypeDef *htim) {
@@ -270,6 +273,22 @@ bool tmc2209_stallguard_poll(void) {
   s_sg_stalled = stalled;
   return newly_stalled;
 }
+
+bool tmc2209_status_poll(void) {
+  uint32_t gstat = 0;
+  if (tmc2209_get_gstat(&gstat) != HAL_OK)
+    return false; // Transient UART error, keep last cached value.
+
+  uint32_t drv_status = 0;
+  if (tmc2209_get_drv_status(&drv_status) != HAL_OK)
+    return false; // Transient UART error, keep last cached value.
+
+  // Pack: GSTAT[2:0] into bits [2:0], DRV_STATUS[7:0] into bits [10:3].
+  s_tmc2209_status = (uint16_t)((gstat & 0x7u) | ((drv_status & 0xFFu) << 3));
+  return true;
+}
+
+uint16_t tmc2209_get_status(void) { return s_tmc2209_status; }
 
 HAL_StatusTypeDef tmc2209_step_set_freq_hz(const uint32_t f_step_hz) {
   if (f_step_hz == 0) {
