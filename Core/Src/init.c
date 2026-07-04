@@ -61,18 +61,20 @@ static void can_tx_state_trigger(void) {
 }
 
 static void can_tx_controls_diagnostic(void) {
-  const can_message_t msg =
-      mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_DIAGNOSTIC];
   const float pos_sp = controls_position_setpoint;
   const float pos_meas = controls_position_meas_rad;
   const float vel_sp = controls_velocity_setpoint;
   const float step_rate = controls_step_rate_command;
-  const float source_sigs[4] = {pos_sp, pos_sp - pos_meas, vel_sp, step_rate};
-  uint32_t sigs[4] = {0};
-  for (int i = 0; i < msg.signal_count; ++i) {
-    sigs[i] = physical_to_raw(source_sigs[i], &msg.signals[i]);
-  }
-  can_send_message_raw32(&HCAN, &msg, sigs);
+
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_DIAGNOSTIC];
+  const uint32_t values[] = {
+      physical_to_raw(pos_sp, &msg->signals[0]),
+      physical_to_raw(pos_sp - pos_meas, &msg->signals[1]),
+      physical_to_raw(vel_sp, &msg->signals[2]),
+      physical_to_raw(step_rate, &msg->signals[3]),
+  };
+  can_send_message_raw32(&HCAN, msg, values);
 }
 
 static void can_tx_stallguard_event(void) {
@@ -81,15 +83,15 @@ static void can_tx_stallguard_event(void) {
   uint16_t sg_result;
   tmc2209_stallguard_get(&enable, &sgthrs, &sg_result, &stalled);
 
-  const can_message_t msg =
-      mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_EVENT];
-  const float source_sigs[4] = {(float)can_node_id, (float)sg_result,
-                                (float)sgthrs, (float)stalled};
-  uint32_t sigs[4] = {0};
-  for (int i = 0; i < msg.signal_count; ++i) {
-    sigs[i] = physical_to_raw(source_sigs[i], &msg.signals[i]);
-  }
-  can_send_message_raw32(&HCAN, &msg, sigs);
+  const can_message_t *msg =
+      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_EVENT];
+  const uint32_t values[] = {
+      physical_to_raw(can_node_id, &msg->signals[0]),
+      physical_to_raw(sg_result, &msg->signals[1]),
+      physical_to_raw(sgthrs, &msg->signals[2]),
+      physical_to_raw(stalled, &msg->signals[3]),
+  };
+  can_send_message_raw32(&HCAN, msg, values);
 }
 
 /**

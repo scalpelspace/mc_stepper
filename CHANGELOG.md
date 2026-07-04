@@ -29,3 +29,5 @@
     - Change DLC mismatch handling to skip only that entry instead of aborting
       the whole dispatch loop.
     - Implement TMC2209 status reporting in state message.
+    - Refactor CAN telemetry transmit to use const pointer message reference and
+      direct signal initialization.

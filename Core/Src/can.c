@@ -278,17 +278,14 @@ static void can_rx_command_motion_config_get(can_header_t *header,
     return;
   }
 
-  const float source_sigs[3] = {(float)controls_get_microsteps(),
-                                controls_get_max_accel_rad_s2(),
-                                controls_get_max_velocity_rad_s()};
-
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_MOTION_CONFIG_RESPONSE];
-  uint32_t sigs[3] = {0};
-  for (int i = 0; i < msg->signal_count; ++i) {
-    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
-  }
-  can_send_message_raw32(&HCAN, msg, sigs);
+  const uint32_t values[] = {
+      physical_to_raw(controls_get_microsteps(), &msg->signals[0]),
+      physical_to_raw(controls_get_max_accel_rad_s2(), &msg->signals[1]),
+      physical_to_raw(controls_get_max_velocity_rad_s(), &msg->signals[2]),
+  };
+  can_send_message_raw32(&HCAN, msg, values);
 }
 
 static void can_rx_command_current_config_set(can_header_t *header,
@@ -349,13 +346,13 @@ static void can_rx_command_current_config_get(can_header_t *header,
 
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CURRENT_CONFIG_RESPONSE];
-  const float source_sigs[4] = {(float)run_current_ma, (float)current_run,
-                                (float)current_hold, (float)current_hold_delay};
-  uint32_t sigs[4] = {0};
-  for (int i = 0; i < msg->signal_count; ++i) {
-    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
-  }
-  can_send_message_raw32(&HCAN, msg, sigs);
+  const uint32_t values[] = {
+      physical_to_raw(run_current_ma, &msg->signals[0]),
+      physical_to_raw(current_run, &msg->signals[1]),
+      physical_to_raw(current_hold, &msg->signals[2]),
+      physical_to_raw(current_hold_delay, &msg->signals[3]),
+  };
+  can_send_message_raw32(&HCAN, msg, values);
 }
 
 static void can_rx_controls_config_set(can_header_t *header, uint8_t *data) {
@@ -400,12 +397,12 @@ static void can_rx_controls_config_get(can_header_t *header, uint8_t *data) {
 
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_CONFIG_RESPONSE];
-  const float source_sigs[3] = {k_p, k_i, k_d};
-  uint32_t sigs[3] = {0};
-  for (int i = 0; i < msg->signal_count; ++i) {
-    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
-  }
-  can_send_message_raw32(&HCAN, msg, sigs);
+  const uint32_t values[] = {
+      physical_to_raw(k_p, &msg->signals[0]),
+      physical_to_raw(k_i, &msg->signals[1]),
+      physical_to_raw(k_d, &msg->signals[2]),
+  };
+  can_send_message_raw32(&HCAN, msg, values);
 }
 
 static void can_rx_stallguard_set(can_header_t *header, uint8_t *data) {
@@ -453,13 +450,13 @@ static void can_rx_stallguard_get(can_header_t *header, uint8_t *data) {
 
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_RESPONSE];
-  const float source_sigs[4] = {(float)enable, (float)sgthrs, (float)sg_result,
-                                (float)stalled};
-  uint32_t sigs[4] = {0};
-  for (int i = 0; i < msg->signal_count; ++i) {
-    sigs[i] = physical_to_raw(source_sigs[i], &msg->signals[i]);
-  }
-  can_send_message_raw32(&HCAN, msg, sigs);
+  const uint32_t values[] = {
+      physical_to_raw(enable, &msg->signals[0]),
+      physical_to_raw(sgthrs, &msg->signals[1]),
+      physical_to_raw(sg_result, &msg->signals[2]),
+      physical_to_raw(stalled, &msg->signals[3]),
+  };
+  can_send_message_raw32(&HCAN, msg, values);
 }
 
 static void can_rx_datetime_set(can_header_t *header, uint8_t *data) {
