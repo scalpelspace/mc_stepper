@@ -64,11 +64,9 @@ static void can_tx_state_trigger(void) {
 
 static void can_tx_sensor(void) {
   const can_message_t *msg = &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_SENSOR];
-  const float raw_rad =
-      (float)as5047p_angle_step * (2.0f * (float)M_PI / 16384.0f);
   const uint32_t values[] = {
       (uint32_t)as5047p_angle_step,
-      physical_to_raw(raw_rad, &msg->signals[1]),
+      physical_to_raw(controls_position_meas_rad, &msg->signals[1]),
   };
   can_send_message_raw32(&HCAN, msg, values);
 }
