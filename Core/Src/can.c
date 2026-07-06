@@ -100,6 +100,9 @@ static void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER];
 
+  uint32_t mux = 0;
+  can_message_get_mux_value(msg, data, &mux);
+
   const can_node_id_t node_id =
       (can_node_id_t)decode_signal(&msg->signals[0], data);
   const control_mode_t control_mode =
@@ -107,10 +110,6 @@ static void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   const bool enable = (bool)decode_signal(&msg->signals[2], data);
   const bool clear_faults = (bool)decode_signal(&msg->signals[3], data);
   // &msg->signals[4] is reserved0.
-  const float target_position_rad =
-      (float)decode_signal(&msg->signals[5], data);
-  const float target_velocity_rad_s =
-      (float)decode_signal(&msg->signals[6], data);
 
   // Node ID filter.
   if (node_id != can_node_id || node_id == CAN_ID_NODE_ID_BROADCAST
@@ -154,7 +153,7 @@ static void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   case CONTROL_MODE_POSITION: {
     const mc_stepper_command_t cmd = {
         .mode = CONTROL_MODE_POSITION,
-        .setpoint = target_position_rad,
+        .setpoint = (float)decode_signal(&msg->signals[5], data),
     };
     controls_set_command(cmd);
     break;
@@ -163,7 +162,7 @@ static void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   case CONTROL_MODE_SPEED: {
     const mc_stepper_command_t cmd = {
         .mode = CONTROL_MODE_SPEED,
-        .setpoint = target_velocity_rad_s,
+        .setpoint = (float)decode_signal(&msg->signals[6], data),
     };
     controls_set_command(cmd);
     break;
@@ -172,7 +171,7 @@ static void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   case CONTROL_MODE_POSITION_RELATIVE: {
     const mc_stepper_command_t cmd = {
         .mode = CONTROL_MODE_POSITION_RELATIVE,
-        .setpoint = target_position_rad,
+        .setpoint = (float)decode_signal(&msg->signals[7], data),
     };
     controls_set_command(cmd);
     break;
@@ -181,7 +180,7 @@ static void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   case CONTROL_MODE_POSITION_OPEN_LOOP: {
     const mc_stepper_command_t cmd = {
         .mode = CONTROL_MODE_POSITION_OPEN_LOOP,
-        .setpoint = target_position_rad,
+        .setpoint = (float)decode_signal(&msg->signals[8], data),
     };
     controls_set_command(cmd);
     break;
@@ -657,7 +656,19 @@ HAL_StatusTypeDef can_send_message_raw32(CAN_HandleTypeDef *h_can_x,
                                          const uint32_t signal_values[]) {
   uint8_t data[8] = {0};
 
+  // Derive mux value from the selector's slot, if the message is muxed.
+  uint32_t mux_value = 0;
   for (int i = 0; i < msg->signal_count; ++i) {
+    if (msg->signals[i].mux_role == CAN_MUX_SELECTOR) {
+      mux_value = signal_values[i];
+      break;
+    }
+  }
+
+  for (int i = 0; i < msg->signal_count; ++i) {
+    if (!can_signal_is_active(&msg->signals[i], mux_value)) {
+      continue; // Skip dependents of other mux values.
+    }
     pack_signal_raw32(&msg->signals[i], data, signal_values[i]);
   }
 

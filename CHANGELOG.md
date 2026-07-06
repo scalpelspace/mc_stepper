@@ -9,6 +9,7 @@
 * [Changelog](#changelog)
   * [v0.1.0 (2026-06-30)](#v010--2026-06-30-)
   * [v0.1.2 (2026-07-04)](#v012--2026-07-04-)
+  * [v0.2.0 (2026-07-06)](#v020--2026-07-06-)
 <!-- TOC -->
 
 </details>
@@ -33,3 +34,12 @@
     - Refactor CAN telemetry transmit to use const pointer message reference and
       direct signal initialization.
     - Reduce TMC2209 UART timeout from 10 ms to 2 ms.
+
+---
+
+## [v0.2.0 (2026-07-06)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.2.0)
+
+- **Modifications:**
+    - Update for `mc_stepper_driver` tagged release v0.2.0.
+        - Update `can_send_message_raw32()` for muxed signal CAN transmit.
+        - Update `can_rx_command_stepper()` for muxed signal CAN recive.
