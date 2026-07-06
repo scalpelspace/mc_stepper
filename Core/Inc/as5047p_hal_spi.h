@@ -27,7 +27,6 @@ extern SPI_HandleTypeDef hspi1;
 
 /** Public variables. *********************************************************/
 
-extern float as5047p_angle_deg;
 extern uint16_t as5047p_angle_step;
 
 /** Public functions. *********************************************************/

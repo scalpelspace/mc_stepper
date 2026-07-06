@@ -44,3 +44,4 @@
         - Update `can_send_message_raw32()` for muxed signal CAN transmit.
         - Update `can_rx_command_stepper()` for muxed signal CAN recive.
     - Implement `RGB_LED_SET` CAN receive handler.
+    - Remove use of unused `as5047p_angle_deg` from the AS5047P driver.
