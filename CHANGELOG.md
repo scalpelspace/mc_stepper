@@ -43,3 +43,4 @@
     - Update for `mc_stepper_driver` tagged release v0.2.0.
         - Update `can_send_message_raw32()` for muxed signal CAN transmit.
         - Update `can_rx_command_stepper()` for muxed signal CAN recive.
+    - Implement `RGB_LED_SET` CAN receive handler.
