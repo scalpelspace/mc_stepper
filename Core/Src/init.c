@@ -7,6 +7,7 @@
 /** Includes. *****************************************************************/
 
 #include "init.h"
+#include "as5047p_hal_spi.h"
 #include "can.h"
 #include "comm.h"
 #include "configuration.h"
@@ -15,6 +16,7 @@
 #include "scheduler.h"
 #include "tmc2209_runner.h"
 #include "ws2812b_hal_pwm.h"
+#include <math.h>
 
 /** Definitions. **************************************************************/
 
@@ -58,6 +60,17 @@ static void can_tx_state_trigger(void) {
 
   can_tx_state();   // Trigger task.
   mcu_temp_start(); // Trigger next temperature read.
+}
+
+static void can_tx_sensor(void) {
+  const can_message_t *msg = &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_SENSOR];
+  const float raw_rad =
+      (float)as5047p_angle_step * (2.0f * (float)M_PI / 16384.0f);
+  const uint32_t values[] = {
+      (uint32_t)as5047p_angle_step,
+      physical_to_raw(raw_rad, &msg->signals[1]),
+  };
+  can_send_message_raw32(&HCAN, msg, values);
 }
 
 static void can_tx_controls_diagnostic(void) {
@@ -196,6 +209,7 @@ void mc_stepper_init(void) {
   scheduler_add_task(can_tx_state_trigger, CAN_TX_STATE_TASK_PERIOD_MS);
   scheduler_add_task(can_id_allocatee_state_machine, 20);
 #ifdef MC_STEPPER_FULL_CAN_TELEMETRY
+  scheduler_add_task(can_tx_sensor, 10);
   scheduler_add_task(can_tx_controls_diagnostic, 20);
 #endif
   scheduler_add_task(can_stepper_reconfig_run, 20);

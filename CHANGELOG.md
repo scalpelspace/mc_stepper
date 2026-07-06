@@ -43,5 +43,6 @@
     - Update for `mc_stepper_driver` tagged release v0.2.0.
         - Update `can_send_message_raw32()` for muxed signal CAN transmit.
         - Update `can_rx_command_stepper()` for muxed signal CAN recive.
-    - Implement `RGB_LED_SET` CAN receive handler.
+        - Implement `RGB_LED_SET` CAN message receive handler.
+        - Implement `SENSOR` CAN message transmit with scheduler task.
     - Remove use of unused `as5047p_angle_deg` from the AS5047P driver.
