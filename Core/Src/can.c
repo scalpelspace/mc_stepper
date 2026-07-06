@@ -101,9 +101,6 @@ static void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
   const can_message_t *msg =
       &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_COMMAND_STEPPER];
 
-  uint32_t mux = 0;
-  can_message_get_mux_value(msg, data, &mux);
-
   const can_node_id_t node_id =
       (can_node_id_t)decode_signal(&msg->signals[0], data);
   const control_mode_t control_mode =
@@ -150,57 +147,31 @@ static void can_rx_command_stepper(can_header_t *header, uint8_t *data) {
     return;
   }
 
-  switch (control_mode) {
-  case CONTROL_MODE_POSITION: {
-    const mc_stepper_command_t cmd = {
-        .mode = CONTROL_MODE_POSITION,
-        .setpoint = (float)decode_signal(&msg->signals[5], data),
-    };
-    controls_set_command(cmd);
-    break;
+  // Dynamically resolve muxed setpoint signal.
+  uint32_t mux = 0;
+  float setpoint = 0.0f;
+  bool has_setpoint = false;
+  if (can_message_get_mux_value(msg, data, &mux)) {
+    for (int i = 0; i < msg->signal_count; ++i) {
+      const can_signal_t *s = &msg->signals[i];
+      if (s->mux_role == CAN_MUX_DEPENDENT && can_signal_is_active(s, mux)) {
+        setpoint = (float)decode_signal(s, data);
+        has_setpoint = true;
+        break; // Only one dependent is active per mux value.
+      }
+    }
   }
 
-  case CONTROL_MODE_SPEED: {
-    const mc_stepper_command_t cmd = {
-        .mode = CONTROL_MODE_SPEED,
-        .setpoint = (float)decode_signal(&msg->signals[6], data),
-    };
+  // Update setpoint commands accordingly. CONTROL_MODE_NONE, unknown modes,
+  // or unresolved muxed setpoints make no controls change, allowing frames
+  // that only clear faults or toggle enable.
+  if (has_setpoint && (control_mode == CONTROL_MODE_POSITION ||
+                       control_mode == CONTROL_MODE_SPEED ||
+                       control_mode == CONTROL_MODE_POSITION_RELATIVE ||
+                       control_mode == CONTROL_MODE_POSITION_OPEN_LOOP)) {
+    const mc_stepper_command_t cmd = {.mode = control_mode,
+                                      .setpoint = setpoint};
     controls_set_command(cmd);
-    break;
-  }
-
-  case CONTROL_MODE_POSITION_RELATIVE: {
-    const mc_stepper_command_t cmd = {
-        .mode = CONTROL_MODE_POSITION_RELATIVE,
-        .setpoint = (float)decode_signal(&msg->signals[7], data),
-    };
-    controls_set_command(cmd);
-    break;
-  }
-
-  case CONTROL_MODE_POSITION_OPEN_LOOP: {
-    const mc_stepper_command_t cmd = {
-        .mode = CONTROL_MODE_POSITION_OPEN_LOOP,
-        .setpoint = (float)decode_signal(&msg->signals[8], data),
-    };
-    controls_set_command(cmd);
-    break;
-  }
-
-  case CONTROL_MODE_NONE: {
-    // Explicit stop: command zero velocity so the control loop decelerates
-    // cleanly via the slew filter, rather than cutting steps abruptly.
-    const mc_stepper_command_t cmd = {
-        .mode = CONTROL_MODE_SPEED,
-        .setpoint = 0.0f,
-    };
-    controls_set_command(cmd);
-    break;
-  }
-
-  default:
-    // Unknown mode - ignore to avoid driving the motor unexpectedly.
-    break;
   }
 }
 

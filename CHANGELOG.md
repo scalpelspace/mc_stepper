@@ -46,3 +46,5 @@
         - Implement `RGB_LED_SET` CAN message receive handler.
         - Implement `SENSOR` CAN message transmit with scheduler task.
     - Remove use of unused `as5047p_angle_deg` from the AS5047P driver.
+    - Adjust controls behaviour where `CONTROL_MODE_NONE` no longer commands a
+      stop, allowing CAN frames to clear faults/enable without a new setpoint.
