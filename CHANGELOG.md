@@ -53,3 +53,4 @@
 ## [v0.2.1 (TBD)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.2.1)
 
 - Cleanup `CHANGELOG.md` for formatting and syntax consistency.
+- Enable `AutoBusOff` and `AutoRetransmission` via CubeMX.
