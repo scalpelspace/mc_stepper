@@ -55,3 +55,9 @@
 - Cleanup `CHANGELOG.md` for formatting and syntax consistency.
 - Enable `AutoBusOff` and `AutoRetransmission` via CubeMX.
 - Update `mc_stepper_driver` to tagged release v0.2.1.
+
+---
+
+## [v0.2.2 (2026-07-10)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.2.2)
+
+- Update `mc_stepper_driver` to tagged version v0.2.2.
