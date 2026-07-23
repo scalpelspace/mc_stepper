@@ -24,6 +24,7 @@ extern DAC_HandleTypeDef hdac1;
 #define TMC2209_HUART huart2
 
 // Timer for step signal.
+#define TMC2209_TIM_INSTANCE TIM15
 #define TMC2209_HTIM htim15
 #define TMC2209_HTIM_CHANNEL TIM_CHANNEL_2
 

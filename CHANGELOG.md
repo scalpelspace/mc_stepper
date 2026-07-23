@@ -11,6 +11,8 @@
   * [v0.1.2 (2026-07-04)](#v012--2026-07-04-)
   * [v0.2.0 (2026-07-06)](#v020--2026-07-06-)
   * [v0.2.1 (2026-07-08)](#v021--2026-07-08-)
+  * [v0.2.2 (2026-07-10)](#v022--2026-07-10-)
+  * [v0.2.3 (TBD)](#v023--tbd-)
 <!-- TOC -->
 
 </details>
@@ -61,3 +63,14 @@
 ## [v0.2.2 (2026-07-10)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.2.2)
 
 - Update `mc_stepper_driver` to tagged version v0.2.2.
+
+---
+
+## [v0.2.3 (TBD)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.2.3)
+
+- Cleanup peripheral checking to compare `->Instance` instead of handle pointers
+  in HAL callbacks.
+    - Match callbacks to their peripheral by register instance (via new
+      `*_INSTANCE` macros) rather than by handle address, and normalize all
+      checkers to the early-return guard-clause form.
+- Update table of contents in `CHANGELOG.md` (outdated on previous release).

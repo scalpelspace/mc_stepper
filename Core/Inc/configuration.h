@@ -15,7 +15,7 @@
 // Software version: `MAJOR.MINOR.PATCH-IDENTIFIER`.
 #define MC_STEPPER_VERSION_MAJOR (0u)     // uint8_t number.
 #define MC_STEPPER_VERSION_MINOR (2u)     // uint8_t number.
-#define MC_STEPPER_VERSION_PATCH (2u)     // uint8_t number.
+#define MC_STEPPER_VERSION_PATCH (3u)     // uint8_t number.
 #define MC_STEPPER_VERSION_IDENTIFIER 'p' // ASCII character.
 
 // CAN ID standard.

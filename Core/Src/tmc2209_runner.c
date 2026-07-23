@@ -57,8 +57,10 @@ static volatile uint16_t s_tmc2209_status = 0;
 /** User implementations into STM32 HAL (overwrite weak HAL functions). *******/
 
 void HAL_TIM_OC_DelayElapsedCallback_tmc2209(TIM_HandleTypeDef *htim) {
-  if (htim != &TMC2209_HTIM)
+  if (htim->Instance != TMC2209_TIM_INSTANCE) {
     return;
+  }
+
   if (g_dt_ticks == 0)
     return; // Stopped; don't reschedule.
 
