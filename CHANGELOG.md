@@ -12,7 +12,7 @@
   * [v0.2.0 (2026-07-06)](#v020--2026-07-06-)
   * [v0.2.1 (2026-07-08)](#v021--2026-07-08-)
   * [v0.2.2 (2026-07-10)](#v022--2026-07-10-)
-  * [v0.2.3 (TBD)](#v023--tbd-)
+  * [v0.2.3 (2026-08-02)](#v023--2026-08-02-)
 <!-- TOC -->
 
 </details>
@@ -66,7 +66,7 @@
 
 ---
 
-## [v0.2.3 (TBD)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.2.3)
+## [v0.2.3 (2026-08-02)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.2.3)
 
 - Cleanup peripheral checking to compare `->Instance` instead of handle pointers
   in HAL callbacks.
@@ -74,3 +74,5 @@
       `*_INSTANCE` macros) rather than by handle address, and normalize all
       checkers to the early-return guard-clause form.
 - Update table of contents in `CHANGELOG.md` (outdated on previous release).
+- Fix WS2812B PWM DMA memory data width to match the `uint16_t` DMA buffer.
+    - Previously was BYTE, corrected to HALFWORD.
