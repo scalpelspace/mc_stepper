@@ -182,7 +182,7 @@ void mc_stepper_init(void) {
   // initializes the absolute encoder.
   controls_init();
 
-  // CAN allocatee begin (configuration check internally).
+  // CAN allocatee begin (ALLOW_CAN_NODE_ID_ALLOCATION checked internally).
   auto_can_id_allocatee_start();
 
   // MCU internal core temperature sense (ADC self-calibration), then kick the
@@ -205,7 +205,9 @@ void mc_stepper_init(void) {
   scheduler_init(); // Initialize scheduler.
   scheduler_add_task(controls_run, CONTROLS_PERIOD_MS);
   scheduler_add_task(can_tx_state_trigger, CAN_TX_STATE_TASK_PERIOD_MS);
+#ifdef ALLOW_CAN_NODE_ID_ALLOCATION
   scheduler_add_task(can_id_allocatee_state_machine, 20);
+#endif
 #ifdef MC_STEPPER_FULL_CAN_TELEMETRY
   scheduler_add_task(can_tx_sensor, 10);
   scheduler_add_task(can_tx_controls_diagnostic, 20);

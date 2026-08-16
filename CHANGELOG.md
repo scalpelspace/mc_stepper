@@ -13,6 +13,7 @@
   * [v0.2.1 (2026-07-08)](#v021--2026-07-08-)
   * [v0.2.2 (2026-07-10)](#v022--2026-07-10-)
   * [v0.2.3 (2026-08-02)](#v023--2026-08-02-)
+  * [v0.2.4 (2026-08-16)](#v024--2026-08-16-)
 <!-- TOC -->
 
 </details>
@@ -76,3 +77,20 @@
 - Update table of contents in `CHANGELOG.md` (outdated on previous release).
 - Fix WS2812B PWM DMA memory data width to match the `uint16_t` DMA buffer.
     - Previously was BYTE, corrected to HALFWORD.
+
+---
+
+## [v0.2.4 (2026-08-16)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.2.4)
+
+- Rename `ALLOW_CAN_NODE_ID_REASSIGNMENT` to `ALLOW_CAN_NODE_ID_ALLOCATION`, now
+  acts as a single switch for the CAN ID allocation protocol.
+    - Undefined: the node never participates in allocation and operates on
+      `DEFAULT_CAN_NODE_ID` for its lifetime. The allocatee scheduler task and
+      the allocatee receive callbacks are compiled out.
+    - Defined: unchanged behaviour, the allocatee runs and restarts after every
+      assignment.
+- Support pre-compile time CAN Node IDs via `DEFAULT_CAN_NODE_ID`.
+    - A non-zero `DEFAULT_CAN_NODE_ID` is now applied to the DBC message IDs in
+      `can_db_init()`. Previously the value only set `can_node_id` and the DBC
+      was left unpatched, so the node transmitted under the authored ID.
+    - Add a compile time range check rejecting IDs outside `[0, 30]`.
