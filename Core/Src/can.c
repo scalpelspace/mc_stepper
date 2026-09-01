@@ -21,8 +21,8 @@
 /** Definitions. **************************************************************/
 
 // Node IDs occupy 5 bits with the top of the range reserved for broadcast, so
-// anything at or above it would collide. 0 (unassigned) is permitted, a node
-// may legitimately operate there when allocation is disabled.
+// anything at or above it would collide. 0 (unassigned) passes here and is
+// narrowed by the allocation mode check below.
 #if DEFAULT_CAN_NODE_ID >= CAN_ID_NODE_ID_BROADCAST
 #error "DEFAULT_CAN_NODE_ID must be in the range [0, 30]."
 #endif
