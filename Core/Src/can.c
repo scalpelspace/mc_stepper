@@ -27,6 +27,15 @@
 #error "DEFAULT_CAN_NODE_ID must be in the range [0, 30]."
 #endif
 
+// A node that refuses reassignment advertises the Node ID it holds so the
+// allocator can reserve it. Node ID 0 (unassigned) carries no such claim, and
+// can_id_allocatee_start() rejects the combination outright.
+#if !defined(ALLOW_CAN_NODE_ID_ALLOCATION) &&                                  \
+    DEFAULT_CAN_NODE_ID == CAN_ID_NODE_ID_UNASSIGNED
+#error                                                                         \
+    "DEFAULT_CAN_NODE_ID must be [1, 30] without ALLOW_CAN_NODE_ID_ALLOCATION"
+#endif
+
 /** Private variables. ********************************************************/
 
 // Transmit variables.
@@ -71,15 +80,16 @@ can_node_id_t can_node_id = DEFAULT_CAN_NODE_ID;
  * @param data Pointer to the raw data of the CAN message.
  */
 static void process_can_message(CAN_RxHeaderTypeDef *header, uint8_t *data) {
-#ifdef ALLOW_CAN_NODE_ID_ALLOCATION
-  // CAN ID allocatee callbacks.
+  // CAN ID allocatee callbacks. Run in both allocation modes: a node holding a
+  // fixed Node ID still answers DISCOVER so the allocator reserves that ID
+  // rather than handing it to another node. The assignment callback is a no-op
+  // for CAN_ALLOC_MODE_NOT_REASSIGNABLE (rejected inside the allocatee).
   // TODO: Overhead here, reduce via control flag or extended state variable?
   const can_header_t l_header = {
       header->StdId, header->ExtId, 0, header->DLC, header->RTR,
   };
   can_rx_can_id_allocatee_discovery(&l_header, data);
   can_rx_can_id_allocatee_assignment(&l_header, data);
-#endif
 
   // CAN PWM Node DBC written callbacks.
   for (int i = 0; i < MC_STEPPER_CAN_DBC_IDX_COUNT; i++) {
@@ -729,14 +739,18 @@ bool can_tx_direct(const can_message_t *msg, const uint8_t data[8]) {
 }
 
 void auto_can_id_allocatee_start(void) {
-#ifndef ALLOW_CAN_NODE_ID_ALLOCATION
-  // Allocation disabled, the node holds DEFAULT_CAN_NODE_ID.
-  return;
-#endif
   const allocatee_config_t l_config = {
       can_tx_direct,
       get_uid_hash48_parts,
       allocatee_complete,
+#ifdef ALLOW_CAN_NODE_ID_ALLOCATION
+      CAN_ALLOC_MODE_REASSIGNABLE,
+#else
+      CAN_ALLOC_MODE_NOT_REASSIGNABLE,
+#endif
+      // Seed with the Node ID currently held (not DEFAULT_CAN_NODE_ID) so a
+      // restart after an assignment keeps advertising the assigned ID.
+      can_node_id,
   };
   can_id_allocatee_start(l_config);
 }
@@ -747,8 +761,7 @@ void allocatee_complete(const can_node_id_t node_id) {
     return;
   }
 
+  // The allocatee returns to awaiting discovery on its own and keeps the Node
+  // ID it was assigned, so it must not be restarted here.
   can_apply_node_id(node_id);
-
-  // Restart allocatee state machine to permit Node ID reassignment.
-  auto_can_id_allocatee_start();
 }
