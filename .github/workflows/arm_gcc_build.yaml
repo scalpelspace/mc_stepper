@@ -17,6 +17,7 @@ on:
       - "**/CMakeLists.txt"                    # Any subdirectory CMake.
       - "cmake/**"                             # Toolchain/cmake modules.
       - ".github/workflows/arm_gcc_build.yaml" # Workflow file.
+      - "Core/mc_stepper_driver"               # Submodule pointer update.
     branches:
       - main
   pull_request:
@@ -29,6 +30,7 @@ on:
       - "**/CMakeLists.txt"                    # Any subdirectory CMake.
       - "cmake/**"                             # Toolchain/cmake modules.
       - ".github/workflows/arm_gcc_build.yaml" # Workflow file.
+      - "Core/mc_stepper_driver"               # Submodule pointer update.
     branches:
       - main
 

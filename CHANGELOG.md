@@ -120,3 +120,4 @@
     - The allocatee now returns to awaiting discovery on its own after ACKing.
       Restarting reset the held Node ID back to the configured seed, so the node
       would advertise as unassigned on the next session.
+- Update `arm_gcc_build.yaml` workflow file to run on submodule updates.
