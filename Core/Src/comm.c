@@ -410,33 +410,6 @@ static void comm_command_stallguard(const char *args) {
 }
 
 /**
- * @brief Set the on-board WS2812B colour (`rgb`).
- *
- * @param args Argument tail holding the colour triplet.
- */
-static void comm_command_rgb(const char *args) {
-  unsigned int r_raw = 0;
-  unsigned int g_raw = 0;
-  unsigned int b_raw = 0;
-
-  // Accept formats like:
-  // "rgb 255,0,128"
-  // "rgb 255, 0, 128"
-  if (sscanf(args, "%u , %u , %u", &r_raw, &g_raw, &b_raw) != 3) {
-    printf("Error: expected `rgb <R>, <G>, <B>`\r\n");
-    return;
-  }
-
-  if (r_raw > 255 || g_raw > 255 || b_raw > 255) {
-    printf("Error: RGB values must be [0,255]\r\n");
-    return;
-  }
-
-  ws2812b_set_colour(0, (uint8_t)r_raw, (uint8_t)g_raw, (uint8_t)b_raw);
-  ws2812b_update();
-}
-
-/**
  * @brief List the supported commands (`help`).
  */
 static void comm_print_help(void) {
@@ -459,7 +432,6 @@ static void comm_print_help(void) {
   printf("  stat            Control loop and driver status\r\n");
   printf("  ver | version   Firmware version\r\n");
   printf("  uid             48-bit UID hash parts\r\n");
-  printf("  rgb <R>,<G>,<B> Set the on-board LED colour\r\n");
 }
 
 /**
@@ -572,10 +544,6 @@ static void comm_handle_line(const char *line) {
 
   else if (comm_match(line, "sg", &args)) {
     comm_command_stallguard(args);
-  }
-
-  else if (comm_match(line, "rgb", &args)) {
-    comm_command_rgb(args);
   }
 
   else { // Error: unknown command.

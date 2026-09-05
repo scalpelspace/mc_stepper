@@ -139,7 +139,6 @@ The following table shows the available commands through this interface:
 | `cur`     | `cur 300 8 1 1`   | R/W | Run current (mA), `IRUN`, `IHOLD` and `IHOLDDELAY`. Writes require `dis`.                           |
 | `gains`   | `gains 50 3 17`   | R/W | Position PID gains, applied live without resetting loop state.                                      |
 | `sg`      | `sg 1 100`        | R/W | StallGuard enable and `SGTHRS` threshold. Reads also report `SG_RESULT` and the latched stall.      |
-| `rgb`     | `rgb 255, 0, 128` | W   | Sets the on-board WS2812B colour, each channel `[0,255]`.                                           |
 
 Commands are newline (`\n`) terminated, a carriage return (`\r`) is ignored.
 Unrecognized input reports an error, run `help` for the command list.
