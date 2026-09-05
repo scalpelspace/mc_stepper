@@ -29,6 +29,20 @@ void HAL_UART_RxCpltCallback_comm(UART_HandleTypeDef *huart);
 
 /** Public functions. *********************************************************/
 
+/**
+ * @brief Initialize the communication interface and arm the RX DMA.
+ */
 void comm_init(void);
+
+/**
+ * @brief Execute a completed command line, if one is pending.
+ *
+ * The RX interrupt only frames bytes into a line. Execution is deferred here
+ * so that the blocking `printf()` replies and the blocking TMC2209 UART
+ * transfers never run in interrupt context, where they would overrun the
+ * CONTROLS_PERIOD_MS controls tick. Poll from a scheduler task. No-op when no
+ * line is pending.
+ */
+void comm_run(void);
 
 #endif

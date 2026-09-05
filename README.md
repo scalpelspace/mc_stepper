@@ -16,14 +16,18 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
     * [1.2 Block Diagram](#12-block-diagram)
     * [1.3 Pin Configurations](#13-pin-configurations)
     * [1.4 Clock Configurations](#14-clock-configurations)
-  * [2 TMC2209 Bipolar Motor Driver](#2-tmc2209-bipolar-motor-driver)
-    * [2.1 Background](#21-background)
-    * [2.2 Universal Synchronous/Asynchronous Receiver/Transmitter (USART)](#22-universal-synchronousasynchronous-receivertransmitter-usart)
-    * [2.3 Pulse Width Modulation (PWM) Timer](#23-pulse-width-modulation-pwm-timer)
-      * [2.3.1 Timer Calculations](#231-timer-calculations)
-      * [2.3.2 Nested Vectored Interrupt Controller (NVIC)](#232-nested-vectored-interrupt-controller-nvic)
-  * [3 AS5147P Magnetic Rotary Encoder](#3-as5147p-magnetic-rotary-encoder)
-  * [Third-Party Licenses](#third-party-licenses)
+  * [2 USB Interface via CP2102N (USB-to-UART)](#2-usb-interface-via-cp2102n-usb-to-uart)
+    * [2.1 Universal Synchronous/Asynchronous Receiver/Transmitter (USART)](#21-universal-synchronousasynchronous-receivertransmitter-usart)
+      * [2.1.1 UART/Serial Interface](#211-uartserial-interface)
+      * [2.1.2 Direct Memory Access (DMA)](#212-direct-memory-access-dma)
+  * [3 TMC2209 Bipolar Motor Driver](#3-tmc2209-bipolar-motor-driver)
+    * [3.1 Background](#31-background)
+    * [3.2 Universal Synchronous/Asynchronous Receiver/Transmitter (USART)](#32-universal-synchronousasynchronous-receivertransmitter-usart)
+    * [3.3 Pulse Width Modulation (PWM) Timer](#33-pulse-width-modulation-pwm-timer)
+      * [3.3.1 Timer Calculations](#331-timer-calculations)
+      * [3.3.2 Nested Vectored Interrupt Controller (NVIC)](#332-nested-vectored-interrupt-controller-nvic)
+  * [4 AS5147P Magnetic Rotary Encoder](#4-as5147p-magnetic-rotary-encoder)
+  * [5 Third-Party Licenses](#5-third-party-licenses)
 <!-- TOC -->
 
 </details>
@@ -102,26 +106,96 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
 
 ---
 
-## 2 TMC2209 Bipolar Motor Driver
+## 2 USB Interface via CP2102N (USB-to-UART)
 
-### 2.1 Background
+### 2.1 Universal Synchronous/Asynchronous Receiver/Transmitter (USART)
 
-### 2.2 Universal Synchronous/Asynchronous Receiver/Transmitter (USART)
+UART baud rate is set for 115200 bps.
+
+#### 2.1.1 UART/Serial Interface
+
+`USART1` is intended for use as a general-purpose development and debug
+interface.
+
+The following table shows the available commands through this interface:
+
+| Command   | Example           | R/W | Description                                                                                         |
+|-----------|-------------------|-----|-----------------------------------------------------------------------------------------------------|
+| `help`    | `help`            | R   | Lists every command with its usage. `?` is an alias.                                                |
+| `version` | `version`         | R   | Prints firmware name and full semantic version string.                                              |
+| `ver`     | `ver`             | R   | Short alias for `version`.                                                                          |
+| `uid`     | `uid`             | R   | Prints the 48-bit UID in decimal as three whitespace-separated 16-bit segments.                     |
+| `stat`    | `stat`            | R   | Prints control state, mode, position, setpoints, step rate and the packed TMC2209 status word.      |
+| `pos`     | `pos 3.1416`      | W   | Absolute closed-loop position setpoint (rad).                                                       |
+| `rel`     | `rel -1.5708`     | W   | Relative closed-loop position setpoint (rad), offset from the current position.                     |
+| `spd`     | `spd 2.0`         | W   | Constant speed setpoint (rad/s).                                                                    |
+| `ol`      | `ol 6.2832`       | W   | Absolute open-loop position setpoint (rad), in the encoder-independent frame.                       |
+| `stop`    | `stop`            | W   | Commands zero speed, decelerating under the slew limit. The control loop stays live.                |
+| `zero`    | `zero`            | W   | Requests a software zero at the current position. Applied at the next standstill.                   |
+| `en`      | `en`              | W   | Enables the driver and lifts the control loop out of `disable`.                                     |
+| `dis`     | `dis`             | W   | Disables the driver and parks the control loop.                                                     |
+| `clr`     | `clr`             | W   | Clears a latched `fault` state.                                                                     |
+| `motion`  | `motion 16 300 5` | R/W | Microstep resolution, acceleration limit (rad/s^2) and peak velocity (rad/s). Writes require `dis`. |
+| `cur`     | `cur 300 8 1 1`   | R/W | Run current (mA), `IRUN`, `IHOLD` and `IHOLDDELAY`. Writes require `dis`.                           |
+| `gains`   | `gains 50 3 17`   | R/W | Position PID gains, applied live without resetting loop state.                                      |
+| `sg`      | `sg 1 100`        | R/W | StallGuard enable and `SGTHRS` threshold. Reads also report `SG_RESULT` and the latched stall.      |
+| `rgb`     | `rgb 255, 0, 128` | W   | Sets the on-board WS2812B colour, each channel `[0,255]`.                                           |
+
+Commands are newline (`\n`) terminated, a carriage return (`\r`) is ignored.
+Unrecognized input reports an error, run `help` for the command list.
+
+Read/write commands report their current configuration when given no arguments
+and apply it when given a full argument set.
+
+The motion commands (`pos`, `rel`, `spd`, `ol` and `stop`) require the driver to
+be enabled (`en`) with no latched fault, and the `motion` and `cur` writes
+require it to be disabled (`dis`). A command rejected by one of these gates
+reports the reason rather than being silently dropped.
+
+#### 2.1.2 Direct Memory Access (DMA)
+
+DMA is used configured for a ring buffer style implementation:
+
+`USART1_RX` `DMA1 Stream6`:
+
+- Direction: `Peripheral to Memory`.
+- Mode: `Normal`
+- Peripheral Increment Address: `Disabled`.
+- Memory Increment Address: `Enabled`.
+- (Both Peripheral and Memory) Data Width: `Byte`.
+- Use FIFO: `Disabled`.
+
+`USART1_TX` `DMA1 Stream7`:
+
+- Direction: `Memory to Peripheral`.
+- Mode: `Normal`
+- Peripheral Increment Address: `Disabled`.
+- Memory Increment Address: `Enabled`.
+- (Both Peripheral and Memory) Data Width: `Byte`.
+- Use FIFO: `Disabled`.
+
+---
+
+## 3 TMC2209 Bipolar Motor Driver
+
+### 3.1 Background
+
+### 3.2 Universal Synchronous/Asynchronous Receiver/Transmitter (USART)
 
 UART is set in Single Wire (Half-Duplex), baud rate is set for 115200 bps.
 
-### 2.3 Pulse Width Modulation (PWM) Timer
+### 3.3 Pulse Width Modulation (PWM) Timer
 
 `TIM15_CH2` is configured as a Output Compare channel, using `Toggle on match`
 mode.
 
 `APB2`: 80 MHz (clock for `TIM15` PWM output channels).
 
-#### 2.3.1 Timer Calculations
+#### 3.3.1 Timer Calculations
 
 Given the PWM equation:
 
-$$f_{PWM} = \frac{f_{TIM}}{ \left( ARR + 1 \right) \times \left( PSC + 1 \right) }$$
+$$f_{PWM} = \frac{f_{TIM}}{ \left (ARR + 1 \right) \times \left (PSC + 1 \right) }$$
 
 - $f_{TIM} = 1 \space \mathrm{MHz}$
     - Choosing 1 MHz (1 us per tick) to simplify calculations.
@@ -134,7 +208,7 @@ $$f_{PWM} = \frac{f_{TIM}}{ \left( ARR + 1 \right) \times \left( PSC + 1 \right)
 
 Thus, the prescaler, $PSC = 80 - 1$.
 
-#### 2.3.2 Nested Vectored Interrupt Controller (NVIC)
+#### 3.3.2 Nested Vectored Interrupt Controller (NVIC)
 
 `TIM15` has its global interrupt enabled.
 
@@ -143,7 +217,7 @@ Thus, the prescaler, $PSC = 80 - 1$.
 
 ---
 
-## 3 AS5147P Magnetic Rotary Encoder
+## 4 AS5147P Magnetic Rotary Encoder
 
 > **Note:** MC Stepper was originally developed with the AS5047P, however
 > later development uses the AS5147P. Firmware is cross compatible for both the
@@ -152,7 +226,7 @@ Thus, the prescaler, $PSC = 80 - 1$.
 
 ---
 
-## Third-Party Licenses
+## 5 Third-Party Licenses
 
 This project uses the following open-source software components:
 

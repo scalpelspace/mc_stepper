@@ -15,6 +15,7 @@
   * [v0.2.3 (2026-08-02)](#v023--2026-08-02-)
   * [v0.2.4 (2026-08-16)](#v024--2026-08-16-)
   * [v0.3.0 (2026-09-01)](#v030--2026-09-01-)
+  * [v0.3.1 (TBD)](#v031--tbd-)
 <!-- TOC -->
 
 </details>
@@ -121,3 +122,35 @@
       Restarting reset the held Node ID back to the configured seed, so the node
       would advertise as unassigned on the next session.
 - Update `arm_gcc_build.yaml` workflow file to run on submodule updates.
+
+---
+
+## [v0.3.1 (TBD)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.3.1)
+
+- Expand the `comm` UART interface to drive the stepper in every control scheme,
+  reaching parity with the CAN command surface.
+    - Motion: `pos <rad>`, `rel <rad>`, `spd <rad/s>`, `ol <rad>`, `stop` and
+      `zero`.
+    - Driver: `en`, `dis` and `clr`, mirroring the enable and fault-clear gates
+      of the CAN `command_stepper` handler.
+    - Configuration, reporting on no arguments and applying on a full argument
+      set: `motion`, `cur`, `gains` and `sg`.
+    - Status: `stat` (control state, mode, position, setpoints, step rate and
+      the packed TMC2209 status word) and `help`.
+    - Commands rejected by a state gate now report the reason instead of being
+      silently dropped.
+- Defer command execution from the RX interrupt to the new `comm_run()`
+  scheduler task.
+    - `printf()` transmits over blocking `HAL_UART_Transmit()`, and the TMC2209
+      configuration writes are blocking UART transfers. Both ran in interrupt
+      context and would overrun the 1 ms `controls_run()` tick. The interrupt
+      now only frames a line and publishes it.
+    - A line received while one is still pending is dropped and reported, rather
+      than overwriting the buffer mid-parse.
+- Fix command matching to compare whole words.
+    - `strncmp(line, "sr", 1)` compared a single character, so every command
+      beginning with `s` dispatched to `sr`.
+- Remove `sr <step_rate>`, superseded by `spd <rad/s>`.
+    - It wrote the step generator directly, but `controls_run()` rewrites the
+      step frequency from `controls_step_rate_command` every tick, so the
+      commanded rate was overwritten within 1 ms and the motor never moved.
