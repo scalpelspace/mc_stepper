@@ -9,7 +9,6 @@
 #include "telemetry.h"
 #include "as5047p_hal_spi.h"
 #include "can.h"
-#include "comm.h"
 #include "controls.h"
 #include "mcu_temp_hal_adc.h"
 #include "tmc2209_runner.h"
@@ -84,13 +83,8 @@ void comm_tx_status(void) {
   const controls_state_t state = controls_state;
   const float position = controls_position_meas_rad;
   const float position_setpoint = controls_position_setpoint;
-  const float velocity_setpoint = controls_velocity_setpoint;
   const float step_rate = controls_step_rate_command;
-
-  printf("s=%s,m=%s\r\n,drv=%04X", comm_state_name(state),
-         comm_mode_name(controls_get_mode()), tmc2209_get_status());
-  printf("pos=%.4f,sr=%.1f\r\n", (double)position, (double)step_rate);
-  printf("pos_sp=%.4f,pos_err=%.4f\r\n", (double)position_setpoint,
-         (double)(position_setpoint - position));
-  printf("vel_sp=%.4f\r\n", (double)velocity_setpoint);
+  printf("s=%u,m=%u,p=%.4f,sp=%.4f,sr=%.1f,drv=%u\r\n", state,
+         controls_get_mode(), (double)position, (double)position_setpoint,
+         (double)step_rate, tmc2209_get_status());
 }

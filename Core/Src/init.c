@@ -26,6 +26,12 @@
 #define CAN_TX_STATE_TASK_DIVIDER                                              \
   (CAN_TX_STATE_TARGET_PERIOD_MS / CAN_TX_STATE_TASK_PERIOD_MS) // Trigger.
 
+// Counter triggered task (comm_tx_status).
+#define COMM_TX_STATUS_TARGET_PERIOD_MS (100u) // Schedule time desired.
+#define COMM_TX_STATUS_TASK_PERIOD_MS (25u)    // Schedule time utilized.
+#define COMM_TX_STATUS_TASK_DIVIDER                                            \
+  (COMM_TX_STATUS_TARGET_PERIOD_MS / COMM_TX_STATUS_TASK_PERIOD_MS) // Trigger.
+
 /** Private functions. ********************************************************/
 
 static void can_tx_state_trigger(void) {
@@ -38,6 +44,17 @@ static void can_tx_state_trigger(void) {
 
   can_tx_state();   // Trigger task.
   mcu_temp_start(); // Trigger next temperature read.
+}
+
+static void comm_tx_status_trigger(void) {
+  static uint16_t comm_tx_status_tick_count = 0;
+
+  if (++comm_tx_status_tick_count < COMM_TX_STATUS_TASK_DIVIDER) {
+    return; // Not time yet, exit.
+  }
+  comm_tx_status_tick_count = 0;
+
+  comm_tx_status(); // Trigger task.
 }
 
 /**
@@ -146,7 +163,7 @@ void mc_stepper_init(void) {
   scheduler_add_task(can_tx_controls_diagnostic, 20);
 #endif
 #ifdef MC_STEPPER_FULL_COMM_TELEMETRY
-  scheduler_add_task(comm_tx_status, 20);
+  scheduler_add_task(comm_tx_status_trigger, COMM_TX_STATUS_TASK_PERIOD_MS);
 #endif
   scheduler_add_task(can_stepper_reconfig_run, 20);
   scheduler_add_task(comm_run, 20);
