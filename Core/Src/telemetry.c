@@ -87,12 +87,10 @@ void comm_tx_status(void) {
   const float velocity_setpoint = controls_velocity_setpoint;
   const float step_rate = controls_step_rate_command;
 
-  printf("state=%s\r\n", comm_state_name(state));
-  printf("mode=%s\r\n", comm_mode_name(controls_get_mode()));
-  printf("pos=%.4f\r\n", (double)position);
-  printf("pos_sp=%.4f\r\n", (double)position_setpoint);
-  printf("pos_err=%.4f\r\n", (double)(position_setpoint - position));
+  printf("s=%s,m=%s\r\n,drv=%04X", comm_state_name(state),
+         comm_mode_name(controls_get_mode()), tmc2209_get_status());
+  printf("pos=%.4f,sr=%.1f\r\n", (double)position, (double)step_rate);
+  printf("pos_sp=%.4f,pos_err=%.4f\r\n", (double)position_setpoint,
+         (double)(position_setpoint - position));
   printf("vel_sp=%.4f\r\n", (double)velocity_setpoint);
-  printf("step_rate=%.1f\r\n", (double)step_rate);
-  printf("drv_status=0x%04X\r\n", tmc2209_get_status());
 }

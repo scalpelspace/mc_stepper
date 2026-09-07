@@ -141,12 +141,12 @@ void mc_stepper_init(void) {
   scheduler_add_task(controls_run, CONTROLS_PERIOD_MS);
   scheduler_add_task(can_tx_state_trigger, CAN_TX_STATE_TASK_PERIOD_MS);
   scheduler_add_task(can_id_allocatee_state_machine, 20);
-#ifdef MC_STEPPER_FULL_COMM_TELEMETRY
-  scheduler_add_task(comm_tx_sensor_controls_diagnostic, 10);
-#endif
 #ifdef MC_STEPPER_FULL_CAN_TELEMETRY
   scheduler_add_task(can_tx_sensor, 10);
   scheduler_add_task(can_tx_controls_diagnostic, 20);
+#endif
+#ifdef MC_STEPPER_FULL_COMM_TELEMETRY
+  scheduler_add_task(comm_tx_status, 20);
 #endif
   scheduler_add_task(can_stepper_reconfig_run, 20);
   scheduler_add_task(comm_run, 20);
