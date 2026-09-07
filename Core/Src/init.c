@@ -14,9 +14,9 @@
 #include "controls.h"
 #include "mcu_temp_hal_adc.h"
 #include "scheduler.h"
+#include "telemetry.h"
 #include "tmc2209_runner.h"
 #include "ws2812b_hal_pwm.h"
-#include <math.h>
 
 /** Definitions. **************************************************************/
 
@@ -28,28 +28,6 @@
 
 /** Private functions. ********************************************************/
 
-/**
- * @brief Transmit state message.
- */
-void can_tx_state(void) {
-  tmc2209_status_poll();
-
-  // Internal firmware fault byte.
-  // bit 0 = controls latched into CONTROLS_FAULT.
-  // TODO: Bits 1-7 reserved for future internal fault codes.
-  const uint8_t internal_fault =
-      (controls_state == CONTROLS_FAULT) ? 0x01u : 0x00u;
-
-  const can_message_t *msg = &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STATE];
-  const uint32_t values[] = {
-      physical_to_raw((float)controls_state, &msg->signals[0]),
-      physical_to_raw(get_mcu_temp(), &msg->signals[1]),
-      physical_to_raw(internal_fault, &msg->signals[2]),
-      physical_to_raw(tmc2209_get_status(), &msg->signals[3]),
-  };
-  can_send_message_raw32(&HCAN, msg, values);
-}
-
 static void can_tx_state_trigger(void) {
   static uint16_t can_tx_state_tick_count = 0;
 
@@ -60,49 +38,6 @@ static void can_tx_state_trigger(void) {
 
   can_tx_state();   // Trigger task.
   mcu_temp_start(); // Trigger next temperature read.
-}
-
-static void can_tx_sensor(void) {
-  const can_message_t *msg = &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_SENSOR];
-  const uint32_t values[] = {
-      (uint32_t)as5047p_angle_step,
-      physical_to_raw(controls_position_meas_rad, &msg->signals[1]),
-  };
-  can_send_message_raw32(&HCAN, msg, values);
-}
-
-static void can_tx_controls_diagnostic(void) {
-  const float pos_sp = controls_position_setpoint;
-  const float pos_meas = controls_position_meas_rad;
-  const float vel_sp = controls_velocity_setpoint;
-  const float step_rate = controls_step_rate_command;
-
-  const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_CONTROLS_DIAGNOSTIC];
-  const uint32_t values[] = {
-      physical_to_raw(pos_sp, &msg->signals[0]),
-      physical_to_raw(pos_sp - pos_meas, &msg->signals[1]),
-      physical_to_raw(vel_sp, &msg->signals[2]),
-      physical_to_raw(step_rate, &msg->signals[3]),
-  };
-  can_send_message_raw32(&HCAN, msg, values);
-}
-
-static void can_tx_stallguard_event(void) {
-  bool enable, stalled;
-  uint8_t sgthrs;
-  uint16_t sg_result;
-  tmc2209_stallguard_get(&enable, &sgthrs, &sg_result, &stalled);
-
-  const can_message_t *msg =
-      &mod_dbc_messages[MC_STEPPER_CAN_DBC_IDX_STALLGUARD_EVENT];
-  const uint32_t values[] = {
-      physical_to_raw(can_node_id, &msg->signals[0]),
-      physical_to_raw(sg_result, &msg->signals[1]),
-      physical_to_raw(sgthrs, &msg->signals[2]),
-      physical_to_raw(stalled, &msg->signals[3]),
-  };
-  can_send_message_raw32(&HCAN, msg, values);
 }
 
 /**
@@ -206,6 +141,9 @@ void mc_stepper_init(void) {
   scheduler_add_task(controls_run, CONTROLS_PERIOD_MS);
   scheduler_add_task(can_tx_state_trigger, CAN_TX_STATE_TASK_PERIOD_MS);
   scheduler_add_task(can_id_allocatee_state_machine, 20);
+#ifdef MC_STEPPER_FULL_COMM_TELEMETRY
+  scheduler_add_task(comm_tx_sensor_controls_diagnostic, 10);
+#endif
 #ifdef MC_STEPPER_FULL_CAN_TELEMETRY
   scheduler_add_task(can_tx_sensor, 10);
   scheduler_add_task(can_tx_controls_diagnostic, 20);

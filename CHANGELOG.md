@@ -154,3 +154,8 @@
     - It wrote the step generator directly, but `controls_run()` rewrites the
       step frequency from `controls_step_rate_command` every tick, so the
       commanded rate was overwritten within 1 ms and the motor never moved.
+- Refactor structure to merge repeating continuous telemetry into the unified
+  `telemetry` module.
+    - Add `MC_STEPPER_FULL_COMM_TELEMETRY` macro (disabled by default) for
+      general UART (comm) telemetry, transmitting a combined controller status
+      similar to existing CAN telemetry.

@@ -65,6 +65,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Core/Src/rtc.c
         Core/Src/run.c
         Core/Src/scheduler.c
+        Core/Src/telemetry.c
         Core/Src/tmc2209_hal_uart.c
         Core/Src/tmc2209_runner.c
         Core/Src/uid_hash48.c

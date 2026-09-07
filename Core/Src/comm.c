@@ -15,7 +15,6 @@
 #include "controls.h"
 #include "tmc2209_runner.h"
 #include "uid_hash48.h"
-#include "ws2812b_hal_pwm.h"
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -85,48 +84,6 @@ static bool comm_match(const char *line, const char *command,
     *args = tail;
   }
   return true;
-}
-
-/**
- * @brief Human readable controls_state_t name.
- */
-static const char *comm_state_name(const controls_state_t state) {
-  switch (state) {
-  case CONTROLS_DISABLE:
-    return "disable";
-  case CONTROLS_IDLE:
-    return "idle";
-  case CONTROLS_START:
-    return "start";
-  case CONTROLS_EXECUTING:
-    return "executing";
-  case CONTROLS_ON_POSITION_TARGET:
-    return "on_target";
-  case CONTROLS_FAULT:
-    return "fault";
-  default:
-    return "unknown";
-  }
-}
-
-/**
- * @brief Human readable control_mode_t name, matching the command words.
- */
-static const char *comm_mode_name(const control_mode_t mode) {
-  switch (mode) {
-  case CONTROL_MODE_NONE:
-    return "none";
-  case CONTROL_MODE_POSITION:
-    return "pos";
-  case CONTROL_MODE_SPEED:
-    return "spd";
-  case CONTROL_MODE_POSITION_RELATIVE:
-    return "rel";
-  case CONTROL_MODE_POSITION_OPEN_LOOP:
-    return "ol";
-  default:
-    return "unknown";
-  }
 }
 
 /**
@@ -597,6 +554,42 @@ void HAL_UART_RxCpltCallback_comm(UART_HandleTypeDef *huart) {
 }
 
 /** Public functions. *********************************************************/
+
+const char *comm_state_name(const controls_state_t state) {
+  switch (state) {
+  case CONTROLS_DISABLE:
+    return "disable";
+  case CONTROLS_IDLE:
+    return "idle";
+  case CONTROLS_START:
+    return "start";
+  case CONTROLS_EXECUTING:
+    return "executing";
+  case CONTROLS_ON_POSITION_TARGET:
+    return "on_target";
+  case CONTROLS_FAULT:
+    return "fault";
+  default:
+    return "unknown";
+  }
+}
+
+const char *comm_mode_name(const control_mode_t mode) {
+  switch (mode) {
+  case CONTROL_MODE_NONE:
+    return "none";
+  case CONTROL_MODE_POSITION:
+    return "pos";
+  case CONTROL_MODE_SPEED:
+    return "spd";
+  case CONTROL_MODE_POSITION_RELATIVE:
+    return "rel";
+  case CONTROL_MODE_POSITION_OPEN_LOOP:
+    return "ol";
+  default:
+    return "unknown";
+  }
+}
 
 void comm_init(void) {
   comm_line_len = 0;

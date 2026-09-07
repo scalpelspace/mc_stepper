@@ -39,6 +39,9 @@
 // Full telemetry flood on CAN bus intended for debug/development purposes.
 #define MC_STEPPER_FULL_CAN_TELEMETRY
 
+// Full telemetry flood on UART intended for debug/development purposes.
+// #define MC_STEPPER_FULL_COMM_TELEMETRY
+
 /** TMC2209 configuration. ****************************************************/
 
 // TMC2209 default configuration.

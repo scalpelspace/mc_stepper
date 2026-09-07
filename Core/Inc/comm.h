@@ -13,6 +13,7 @@
 
 /** Includes. *****************************************************************/
 
+#include "controls.h"
 #include "stm32l4xx_hal.h"
 
 /** STM32 port and pin configs. ***********************************************/
@@ -28,6 +29,16 @@ extern UART_HandleTypeDef huart1;
 void HAL_UART_RxCpltCallback_comm(UART_HandleTypeDef *huart);
 
 /** Public functions. *********************************************************/
+
+/**
+ * @brief Human readable controls_state_t name.
+ */
+const char *comm_state_name(controls_state_t state);
+
+/**
+ * @brief Human readable control_mode_t name, matching the command words.
+ */
+const char *comm_mode_name(control_mode_t mode);
 
 /**
  * @brief Initialize the communication interface and arm the RX DMA.
