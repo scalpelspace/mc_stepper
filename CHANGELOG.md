@@ -15,7 +15,7 @@
   * [v0.2.3 (2026-08-02)](#v023--2026-08-02-)
   * [v0.2.4 (2026-08-16)](#v024--2026-08-16-)
   * [v0.3.0 (2026-09-01)](#v030--2026-09-01-)
-  * [v0.3.1 (TBD)](#v031--tbd-)
+  * [v0.3.1 (2026-09-06)](#v031--2026-09-06-)
 <!-- TOC -->
 
 </details>
@@ -125,7 +125,7 @@
 
 ---
 
-## [v0.3.1 (TBD)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.3.1)
+## [v0.3.1 (2026-09-06)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.3.1)
 
 - Expand the `comm` UART interface to drive the stepper in every control scheme,
   reaching parity with the CAN command surface.
