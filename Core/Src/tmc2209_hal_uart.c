@@ -12,7 +12,7 @@
 
 // Software driven configurations.
 #define TMC2209_DEFAULT_ADDRESS (0u) // MS1, MS2 both ground.
-#define TMC2209_TIMEOUT_MS (2u)     // HAL blocking UART timeout.
+#define TMC2209_TIMEOUT_MS (2u)      // HAL blocking UART timeout.
 
 // Hardware datasheet defined configurations.
 #define TMC2209_SYNC (0x05)
@@ -35,8 +35,17 @@
 #define TMC2209_CHOPCONF_MRES_MASK (0x0Fu << TMC2209_CHOPCONF_MRES_SHIFT)
 #define TMC2209_CHOPCONF_VSENSE_BIT (1u << 17)
 
+// GCONF bits.
 #define TMC2209_GCONF_I_SCALE_ANALOG_BIT (1u << 0)
-#define TMC2209_GCONF_INTERNAL_RSENSE_BIT (1u << 6)
+#define TMC2209_GCONF_INTERNAL_RSENSE_BIT (1u << 1)
+// PDN_UART input function disabled. The datasheet requires this bit set when
+// the UART interface is used, otherwise PDN_UART keeps its standstill current
+// reduction function.
+#define TMC2209_GCONF_PDN_DISABLE_BIT (1u << 6)
+// Microstep resolution source. 0 = MS1/MS2 pins, 1 = MRES field in CHOPCONF.
+// Must be set for tmc2209_set_microsteps() to have any effect, otherwise the
+// pin strapping governs (both pins to GND is 8 microsteps).
+#define TMC2209_GCONF_MSTEP_REG_SELECT_BIT (1u << 7)
 
 /** Private functions. ********************************************************/
 
@@ -171,6 +180,18 @@ static HAL_StatusTypeDef tmc2209_read_reg(const uint8_t reg,
 HAL_StatusTypeDef tmc2209_clear_gstat(void) {
   // Writing 1s clears flags in GSTAT.
   return tmc2209_write_reg(TMC2209_REG_GSTAT, 0x00000007u);
+}
+
+HAL_StatusTypeDef tmc2209_set_uart_control(void) {
+  uint32_t gconf = 0;
+  const HAL_StatusTypeDef st = tmc2209_read_reg(TMC2209_REG_GCONF, &gconf);
+  if (st != HAL_OK)
+    return st;
+
+  gconf |= TMC2209_GCONF_PDN_DISABLE_BIT;
+  gconf |= TMC2209_GCONF_MSTEP_REG_SELECT_BIT;
+
+  return tmc2209_write_reg(TMC2209_REG_GCONF, gconf);
 }
 
 HAL_StatusTypeDef tmc2209_set_microsteps(const uint16_t microsteps) {

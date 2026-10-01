@@ -137,6 +137,12 @@ HAL_StatusTypeDef tmc2209_init(const tmc2209_configuration_t config) {
   if (result != HAL_OK)
     return result;
 
+  // Hand the pin-strapped functions over to UART. Must precede
+  // tmc2209_set_microsteps(), which is a no-op until mstep_reg_select is set.
+  result = tmc2209_set_uart_control();
+  if (result != HAL_OK)
+    return result;
+
   // Calculate DAC output for VREF.
   const float dac_v = dac_voltage(config.run_current_ma, config.current_run);
   const uint16_t dac_counts = dac_counts_from_voltage(dac_v);

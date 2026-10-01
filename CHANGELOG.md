@@ -16,7 +16,7 @@
   * [v0.2.4 (2026-08-16)](#v024--2026-08-16-)
   * [v0.3.0 (2026-09-01)](#v030--2026-09-01-)
   * [v0.3.1 (2026-09-06)](#v031--2026-09-06-)
-  * [v0.3.2 (2026-10-01)](#v032--2026-10-01-)
+  * [v0.3.3 (2026-10-01)](#v033--2026-10-01-)
 <!-- TOC -->
 
 </details>
@@ -163,7 +163,7 @@
 
 ---
 
-## [v0.3.2 (2026-10-01)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.3.2)
+## [v0.4.0 (2026-10-01)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.4.0)
 
 - Derive the position on-target hysteresis band from the microstep setting
   instead of fixing it at compile time.
@@ -197,4 +197,36 @@
       1.5x margin. It now carries the same 3x margin as the default.
 - Add `controls_get_position_tolerance()` and report the derived band in the
   comm `motion` read back, the value is no longer visible in `configuration.h`.
-- Update the `motion` command description in `README.md` accordingly.
+    - Update the `motion` command description in `README.md` accordingly.
+- Fix the TMC2209 microstep resolution never actually changing.
+    - `GCONF.mstep_reg_select` (bit 7) was never set, so the microstep
+      resolution stayed under the control of the MS1/MS2 pins and every `MRES`
+      write to `CHOPCONF` was accepted but ignored by the sequencer. Both pins
+      are strapped to GND, which selects 8 microsteps, so the driver ran at 1/8
+      regardless of the configured `step_size`.
+    - Add `tmc2209_set_uart_control()`, called from `tmc2209_init()` before the
+      first `tmc2209_set_microsteps()`.
+    - Every angular unit was scaled by `step_size / 8` as a result. At the
+      default `MC_STEPPER_STEP_SIZE` of 16 the motor ran at twice the commanded
+      velocity and acceleration, and `CONTROL_MODE_POSITION_OPEN_LOOP` travelled
+      twice the requested angle. `CONTROL_MODE_POSITION` still converged to the
+      correct angle, the encoder measures real radians, but carried twice the
+      intended loop gain.
+    - Existing PID gains were tuned against that doubled gain and will need
+      retuning.
+- Fix the `GCONF` bit map, `internal_Rsense` is bit 1 and not bit 6.
+    - Bit 6 is `pdn_disable`, which the datasheet requires set whenever the UART
+      interface is used. `tmc2209_init()` calls
+      `tmc2209_set_current_sense(false, ...)`, so it was actively clearing that
+      bit and leaving `PDN_UART` on its standstill current reduction function.
+    - `tmc2209_set_uart_control()` now sets `pdn_disable`, and
+      `tmc2209_set_current_sense()` acts on the correct `internal_Rsense` bit.
+      The argument previously had no effect on the intended register field.
+    - Bit definitions annotated against datasheet rev 1.08 section 5.1.
+- Seed `controls.c` `microstep_config` from `MC_STEPPER_STEP_SIZE` instead of a
+  hardcoded `16`.
+    - The control loop and `tmc2209_init()` held independent copies of the
+      microstep setting that only agreed at the default. Changing
+      `MC_STEPPER_STEP_SIZE` in `configuration.h` desynchronized them and scaled
+      every angular unit by the ratio. The runtime paths (comm `motion` and CAN
+      `motion_config_set`) were unaffected, they update both together.

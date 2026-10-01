@@ -24,7 +24,9 @@ static pid_controller_t position_pid = {0}; // Outputs velocity (rad/s).
 
 // Stepper motor configuration.
 static uint16_t full_steps_per_rev = 200;
-static uint16_t microstep_config = 16;
+// Must track the resolution actually programmed into the TMC2209, which
+// tmc2209_init() takes from the same macro.
+static uint16_t microstep_config = MC_STEPPER_STEP_SIZE;
 static float steps_per_rad;
 
 // Runtime acceleration limit. Seeded from the configured default (rad/s^2),

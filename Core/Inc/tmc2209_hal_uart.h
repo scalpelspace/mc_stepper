@@ -44,6 +44,18 @@ extern DAC_HandleTypeDef hdac1;
 
 HAL_StatusTypeDef tmc2209_clear_gstat(void);
 
+/**
+ * @brief Hand pin-strapped functions over to the UART interface.
+ *
+ * Sets GCONF.pdn_disable, required by the datasheet whenever the UART interface
+ * is used, and GCONF.mstep_reg_select, without which the microstep resolution
+ * stays under the control of the MS1/MS2 pins and every MRES write is ignored.
+ * Call once during init, before tmc2209_set_microsteps().
+ *
+ * @return HAL_StatusTypeDef status.
+ */
+HAL_StatusTypeDef tmc2209_set_uart_control(void);
+
 HAL_StatusTypeDef tmc2209_set_microsteps(uint16_t microsteps);
 
 HAL_StatusTypeDef tmc2209_set_ihold_irun(uint8_t ihold, uint8_t irun,
