@@ -19,8 +19,22 @@
 #define CONTROLS_PERIOD_S ((float)CONTROLS_PERIOD_MS / 1000.0f)
 
 // Controls on target constants.
-#define POSITION_TOLERANCE_ENTER_RAD (0.003f)
-#define POSITION_TOLERANCE_EXIT_RAD (0.015f)
+//
+// The on-target band is bounded from below by both the encoder and the step
+// grid, so it is derived at runtime rather than fixed. Two effects set it:
+//   1. Encoder noise. The AS5147P resolves 2*pi/16384 rad (0.38 mrad), with
+//      transition noise around 1 mrad. No amount of microstepping reads
+//      position better than this, so the band can never usefully go below it.
+//   2. Step quantization. The rotor only rests on microstep boundaries, so the
+//      standing error is up to half a microstep. A band tighter than that can
+//      never be satisfied and the on-target latch would never close.
+// The band is therefore max(floor, POSITION_TOLERANCE_MICROSTEPS * microstep),
+// see position_tolerance_update(). At 1/16 microstepping and finer the floor
+// governs and the band is the historical 0.003/0.015 rad; coarser settings
+// widen it to stay reachable.
+#define POSITION_TOLERANCE_FLOOR_RAD (0.003f) // Encoder noise floor, ~3 sigma.
+#define POSITION_TOLERANCE_MICROSTEPS (1.5f)  // Band in microsteps, > 0.5.
+#define POSITION_TOLERANCE_EXIT_RATIO (5.0f)  // Exit band / enter band.
 #define SETPOINT_EPSILON_RAD (1e-4f)
 #define ON_TARGET_DWELL_MS (25u)
 #define ON_TARGET_DWELL_TICKS                                                  \
@@ -145,6 +159,18 @@ void controls_set_max_velocity_rad_s(float max_velocity_rad_s);
  * @return Peak velocity in rad/s.
  */
 float controls_get_max_velocity_rad_s(void);
+
+/**
+ * @brief Read back the active position on-target hysteresis band.
+ *
+ * Derived from the microstep configuration, see the tolerance notes above, so
+ * it changes with controls_set_microsteps(). Exposed because the band is no
+ * longer a compile time constant that can be read off the configuration.
+ *
+ * @param enter_rad Out. Entry band in rad. Nullable.
+ * @param exit_rad Out. Exit band in rad. Nullable.
+ */
+void controls_get_position_tolerance(float *enter_rad, float *exit_rad);
 
 /**
  * @brief Live-tune the position PID gains.

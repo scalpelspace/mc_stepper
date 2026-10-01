@@ -119,26 +119,27 @@ interface.
 
 The following table shows the available commands through this interface:
 
-| Command   | Example           | R/W | Description                                                                                         |
-|-----------|-------------------|-----|-----------------------------------------------------------------------------------------------------|
-| `help`    | `help`            | R   | Lists every command with its usage. `?` is an alias.                                                |
-| `version` | `version`         | R   | Prints firmware name and full semantic version string.                                              |
-| `ver`     | `ver`             | R   | Short alias for `version`.                                                                          |
-| `uid`     | `uid`             | R   | Prints the 48-bit UID in decimal as three whitespace-separated 16-bit segments.                     |
-| `stat`    | `stat`            | R   | Prints control state, mode, position, setpoints, step rate and the packed TMC2209 status word.      |
-| `pos`     | `pos 3.1416`      | W   | Absolute closed-loop position setpoint (rad).                                                       |
-| `rel`     | `rel -1.5708`     | W   | Relative closed-loop position setpoint (rad), offset from the current position.                     |
-| `spd`     | `spd 2.0`         | W   | Constant speed setpoint (rad/s).                                                                    |
-| `ol`      | `ol 6.2832`       | W   | Absolute open-loop position setpoint (rad), in the encoder-independent frame.                       |
-| `stop`    | `stop`            | W   | Commands zero speed, decelerating under the slew limit. The control loop stays live.                |
-| `zero`    | `zero`            | W   | Requests a software zero at the current position. Applied at the next standstill.                   |
-| `en`      | `en`              | W   | Enables the driver and lifts the control loop out of `disable`.                                     |
-| `dis`     | `dis`             | W   | Disables the driver and parks the control loop.                                                     |
-| `clr`     | `clr`             | W   | Clears a latched `fault` state.                                                                     |
-| `motion`  | `motion 16 300 5` | R/W | Microstep resolution, acceleration limit (rad/s^2) and peak velocity (rad/s). Writes require `dis`. |
-| `cur`     | `cur 300 8 1 1`   | R/W | Run current (mA), `IRUN`, `IHOLD` and `IHOLDDELAY`. Writes require `dis`.                           |
-| `gains`   | `gains 50 3 17`   | R/W | Position PID gains, applied live without resetting loop state.                                      |
-| `sg`      | `sg 1 100`        | R/W | StallGuard enable and `SGTHRS` threshold. Reads also report `SG_RESULT` and the latched stall.      |
+| Command   | Example           | R/W | Description                                                                                                                     |
+|-----------|-------------------|-----|---------------------------------------------------------------------------------------------------------------------------------|
+| `help`    | `help`            | R   | Lists every command with its usage. `?` is an alias.                                                                            |
+| `version` | `version`         | R   | Prints firmware name and full semantic version string.                                                                          |
+| `ver`     | `ver`             | R   | Short alias for `version`.                                                                                                      |
+| `uid`     | `uid`             | R   | Prints the 48-bit UID in decimal as three whitespace-separated 16-bit segments.                                                 |
+| `rgb`     | `rgb 255, 0, 128` | W   | Sets the on-board WS2812B colour, each channel `[0,255]`.                                                                       |
+| `stat`    | `stat`            | R   | Prints control state, mode, position, setpoints, step rate and the packed TMC2209 status word.                                  |
+| `pos`     | `pos 3.1416`      | W   | Absolute closed-loop position setpoint (rad).                                                                                   |
+| `rel`     | `rel -1.5708`     | W   | Relative closed-loop position setpoint (rad), offset from the current position.                                                 |
+| `spd`     | `spd 2.0`         | W   | Constant speed setpoint (rad/s).                                                                                                |
+| `ol`      | `ol 6.2832`       | W   | Absolute open-loop position setpoint (rad), in the encoder-independent frame.                                                   |
+| `stop`    | `stop`            | W   | Commands zero speed, decelerating under the slew limit. The control loop stays live.                                            |
+| `zero`    | `zero`            | W   | Requests a software zero at the current position. Applied at the next standstill.                                               |
+| `en`      | `en`              | W   | Enables the driver and lifts the control loop out of `disable`.                                                                 |
+| `dis`     | `dis`             | W   | Disables the driver and parks the control loop.                                                                                 |
+| `clr`     | `clr`             | W   | Clears a latched `fault` state.                                                                                                 |
+| `motion`  | `motion 16 300 5` | R/W | Microstep resolution, acceleration limit (rad/s^2), peak velocity (rad/s) and the derived on-target band. Writes require `dis`. |
+| `cur`     | `cur 300 8 1 1`   | R/W | Run current (mA), `IRUN`, `IHOLD` and `IHOLDDELAY`. Writes require `dis`.                                                       |
+| `gains`   | `gains 50 3 17`   | R/W | Position PID gains, applied live without resetting loop state.                                                                  |
+| `sg`      | `sg 1 100`        | R/W | StallGuard enable and `SGTHRS` threshold. Reads also report `SG_RESULT` and the latched stall.                                  |
 
 Commands are newline (`\n`) terminated, a carriage return (`\r`) is ignored.
 Unrecognized input reports an error, run `help` for the command list.

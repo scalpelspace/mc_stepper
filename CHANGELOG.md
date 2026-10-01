@@ -16,12 +16,13 @@
   * [v0.2.4 (2026-08-16)](#v024--2026-08-16-)
   * [v0.3.0 (2026-09-01)](#v030--2026-09-01-)
   * [v0.3.1 (2026-09-06)](#v031--2026-09-06-)
+  * [v0.3.2 (2026-09-30)](#v032--2026-09-30-)
 <!-- TOC -->
 
 </details>
 
 ---
-
+Fix on-target tolerance for larger microsteps (v0.3.2)
 ## [v0.1.0 (2026-06-30)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.1.0)
 
 - Initial release.
@@ -159,3 +160,41 @@
     - Add `MC_STEPPER_FULL_COMM_TELEMETRY` macro (disabled by default) for
       general UART (comm) telemetry, transmitting a combined controller status
       similar to existing CAN telemetry.
+
+---
+
+## [v0.3.2 (2026-09-30)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.3.2)
+
+- Derive the position on-target hysteresis band from the microstep setting
+  instead of fixing it at compile time.
+    - Replace `POSITION_TOLERANCE_ENTER_RAD` and `POSITION_TOLERANCE_EXIT_RAD`
+      with `POSITION_TOLERANCE_FLOOR_RAD`, `POSITION_TOLERANCE_MICROSTEPS` and
+      `POSITION_TOLERANCE_EXIT_RATIO`, backwards compatibility loss.
+    - The band is now
+      `max(POSITION_TOLERANCE_FLOOR_RAD, POSITION_TOLERANCE_MICROSTEPS *
+      microstep_rad)`, re-derived by `position_tolerance_update()` from
+      `controls_init()` and `controls_set_microsteps()`.
+    - The floor is the encoder limit, the AS5147P resolves `2*pi/16384` rad
+      (0.38 mrad) with roughly 1 mrad of transition noise, so a tighter band is
+      unachievable no matter how fine the microstepping.
+    - The microstep term is the actuator limit, the rotor only rests on
+      microstep boundaries so the standing error reaches half a microstep.
+- Fix the on-target latch never closing at 1/4 microstepping and coarser.
+    - At `step_size` 1, 2 and 4 the half-microstep standing error (15.7, 7.9 and
+      3.9 mrad) exceeded the fixed 3 mrad entry band, so `on_target_ticks` reset
+      every tick and `latched_on_target` never became true.
+    - The loop stayed in `CONTROLS_EXECUTING` indefinitely, so the step stop in
+      `CONTROLS_ON_POSITION_TARGET` never engaged and the motor hunted around
+      the target. The status LED stayed on the moving colour and the CAN state
+      message never reported `CONTROLS_ON_POSITION_TARGET`.
+    - Both configuration paths accepted these settings without complaint, the
+      comm `motion` command validates only `[1,256]` and the CAN
+      `motion_config_set` handler only rejects `0`.
+- Hold `step_size` 16 (the default) and finer to the previous 0.003 / 0.015 rad
+  band, where the encoder floor governs. Only `step_size` 8 and coarser widen.
+    - `step_size` 8 widens from 3 mrad to 5.9 mrad. It latched before, but with
+      only 0.76 microsteps of band against a 0.5 microstep standing error, a
+      1.5x margin. It now carries the same 3x margin as the default.
+- Add `controls_get_position_tolerance()` and report the derived band in the
+  comm `motion` read back, the value is no longer visible in `configuration.h`.
+- Update the `motion` command description in `README.md` accordingly.

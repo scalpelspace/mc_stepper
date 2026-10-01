@@ -36,6 +36,13 @@ static float s_max_accel_step = 0.0f; // steps/s^2 slew cap, set in init.
 static uint16_t on_target_ticks = 0;   // Position on-target latch count.
 static bool latched_on_target = false; // Position on-target latching check.
 
+// Position on-target hysteresis band (rad), re-derived from the microstep
+// configuration by position_tolerance_update(). Seeded with the encoder floor
+// so the values are sane before controls_init() runs.
+static float s_pos_tol_enter_rad = POSITION_TOLERANCE_FLOOR_RAD;
+static float s_pos_tol_exit_rad =
+    POSITION_TOLERANCE_FLOOR_RAD * POSITION_TOLERANCE_EXIT_RATIO;
+
 // Trapezoidal motion profile state. The profile plans a feasible position and
 // velocity trajectory toward the setpoint that respects s_max_accel_rad_s2 and
 // s_max_velocity_rad_s. PID then corrects deviation between profile and
@@ -104,6 +111,27 @@ static float step_rate_slew_limit(const float target) {
   const float delta =
       clampf(target - controls_step_rate_command, -max_delta, +max_delta);
   return controls_step_rate_command + delta;
+}
+
+/**
+ * @brief Re-derive the position on-target band from the microstep setting.
+ *
+ * Takes the larger of the encoder noise floor and the step-grid term, see the
+ * tolerance notes in controls.h. Call whenever steps_per_rad changes, the band
+ * is meaningless against a stale calibration.
+ */
+static void position_tolerance_update(void) {
+  // steps_per_rad is microsteps per radian, so its reciprocal is the angular
+  // size of one microstep. Guarded against a zero calibration, which would
+  // otherwise divide by zero before controls_init() sets it.
+  const float microstep_rad =
+      (steps_per_rad > 0.0f) ? (1.0f / steps_per_rad) : 0.0f;
+  const float grid_tol = POSITION_TOLERANCE_MICROSTEPS * microstep_rad;
+
+  s_pos_tol_enter_rad = (grid_tol > POSITION_TOLERANCE_FLOOR_RAD)
+                            ? grid_tol
+                            : POSITION_TOLERANCE_FLOOR_RAD;
+  s_pos_tol_exit_rad = s_pos_tol_enter_rad * POSITION_TOLERANCE_EXIT_RATIO;
 }
 
 /**
@@ -188,8 +216,8 @@ static bool on_position_target(const mc_stepper_command_t command) {
     return false;
 
   // Choose hysteresis thresholds depending on current latched state.
-  const float pos_tol = latched_on_target ? POSITION_TOLERANCE_EXIT_RAD
-                                          : POSITION_TOLERANCE_ENTER_RAD;
+  const float pos_tol =
+      latched_on_target ? s_pos_tol_exit_rad : s_pos_tol_enter_rad;
 
   const float pos_err = command.setpoint - controls_position_meas_rad;
 
@@ -388,6 +416,9 @@ void controls_init(void) {
   // conversion in a single place.
   controls_set_max_accel_rad_s2(s_max_accel_rad_s2);
 
+  // Size the on-target band against the same calibration.
+  position_tolerance_update();
+
   // Position.
   pid_init(&position_pid);
   position_pid.k_p = 50.0f;
@@ -519,6 +550,8 @@ bool controls_set_microsteps(const uint16_t microsteps) {
     if (s_max_accel_rad_s2 > 0.0f) {
       s_max_accel_step = s_max_accel_rad_s2 * steps_per_rad;
     }
+    // Re-derive the on-target band, a coarser grid needs a wider one.
+    position_tolerance_update();
     // Rescale the internal open-loop position so it keeps the same rad value
     // across a microstep change.
     if (old_steps_per_rad > 0.0f) {
@@ -548,6 +581,15 @@ void controls_set_max_velocity_rad_s(const float max_velocity_rad_s) {
 }
 
 float controls_get_max_velocity_rad_s(void) { return s_max_velocity_rad_s; }
+
+void controls_get_position_tolerance(float *enter_rad, float *exit_rad) {
+  if (enter_rad) {
+    *enter_rad = s_pos_tol_enter_rad;
+  }
+  if (exit_rad) {
+    *exit_rad = s_pos_tol_exit_rad;
+  }
+}
 
 void controls_set_gains(const float k_p, const float k_i, const float k_d) {
   __disable_irq();

@@ -223,6 +223,12 @@ static void comm_command_motion_config(const char *args) {
     printf("max_accel %.3f rad/s^2\r\n",
            (double)controls_get_max_accel_rad_s2());
     printf("max_vel %.3f rad/s\r\n", (double)controls_get_max_velocity_rad_s());
+    // Derived from the microstep setting, so report it alongside.
+    float tol_enter = 0.0f;
+    float tol_exit = 0.0f;
+    controls_get_position_tolerance(&tol_enter, &tol_exit);
+    printf("pos_tol_enter %.5f rad\r\n", (double)tol_enter);
+    printf("pos_tol_exit %.5f rad\r\n", (double)tol_exit);
     return;
   }
 
