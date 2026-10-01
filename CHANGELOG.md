@@ -16,13 +16,13 @@
   * [v0.2.4 (2026-08-16)](#v024--2026-08-16-)
   * [v0.3.0 (2026-09-01)](#v030--2026-09-01-)
   * [v0.3.1 (2026-09-06)](#v031--2026-09-06-)
-  * [v0.3.2 (2026-09-30)](#v032--2026-09-30-)
+  * [v0.3.2 (2026-10-01)](#v032--2026-10-01-)
 <!-- TOC -->
 
 </details>
 
 ---
-Fix on-target tolerance for larger microsteps (v0.3.2)
+
 ## [v0.1.0 (2026-06-30)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.1.0)
 
 - Initial release.
@@ -163,7 +163,7 @@ Fix on-target tolerance for larger microsteps (v0.3.2)
 
 ---
 
-## [v0.3.2 (2026-09-30)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.3.2)
+## [v0.3.2 (2026-10-01)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.3.2)
 
 - Derive the position on-target hysteresis band from the microstep setting
   instead of fixing it at compile time.
@@ -171,8 +171,8 @@ Fix on-target tolerance for larger microsteps (v0.3.2)
       with `POSITION_TOLERANCE_FLOOR_RAD`, `POSITION_TOLERANCE_MICROSTEPS` and
       `POSITION_TOLERANCE_EXIT_RATIO`, backwards compatibility loss.
     - The band is now
-      `max(POSITION_TOLERANCE_FLOOR_RAD, POSITION_TOLERANCE_MICROSTEPS *
-      microstep_rad)`, re-derived by `position_tolerance_update()` from
+      `max(POSITION_TOLERANCE_FLOOR_RAD, POSITION_TOLERANCE_MICROSTEPS * microstep_rad)`,
+      re-derived by `position_tolerance_update()` from
       `controls_init()` and `controls_set_microsteps()`.
     - The floor is the encoder limit, the AS5147P resolves `2*pi/16384` rad
       (0.38 mrad) with roughly 1 mrad of transition noise, so a tighter band is
