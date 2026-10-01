@@ -17,12 +17,6 @@
 
 // TIM15 input clock after prescaler.
 // dt_ticks = TMC2209_TIM_CLOCK_HZ / (2 * f_step_hz).
-//
-// TIM15 ARR must also stay at 0xFFFF. The step ISR advances the output compare
-// with 16-bit modulo arithmetic, (uint16_t)(ccr + dt_ticks), which is only
-// valid against a full 16-bit wrap, and the dt_ticks ceiling of 65535 below
-// assumes the same. A smaller ARR would leave compare values that never match,
-// stalling the step output with nothing to point at the cause.
 #define TMC2209_TIM_CLOCK_HZ (1000000ul)
 
 // Step generator rate limits. The STEP pin toggles in hardware on each compare

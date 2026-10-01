@@ -165,104 +165,57 @@
 
 ## [v0.4.0 (2026-10-01)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.4.0)
 
+- Fix the TMC2209 microstep resolution never actually changing.
+    - `GCONF.mstep_reg_select` was never set, so the resolution stayed under the
+      MS1/MS2 pins and every `MRES` write was ignored. Both pins are strapped to
+      GND, selecting 1/8 regardless of the configured `step_size`.
+    - Add `tmc2209_set_uart_control()`, called from `tmc2209_init()` before the
+      first `tmc2209_set_microsteps()`.
+    - Every angular unit was scaled by `step_size / 8`. At the default 16 the
+      motor ran at twice the commanded velocity and acceleration, and
+      `CONTROL_MODE_POSITION_OPEN_LOOP` travelled twice the requested angle.
+    - Existing PID gains were tuned against the doubled loop gain and will need
+      retuning.
+- Fix the `GCONF` bit map, `internal_Rsense` is bit 1 and not bit 6.
+    - Bit 6 is `pdn_disable`, which the datasheet requires to be set for UART
+      operation. `tmc2209_init()` was actively clearing it via
+      `tmc2209_set_current_sense(false, ...)`.
+    - `tmc2209_set_uart_control()` now sets `pdn_disable` and
+      `tmc2209_set_current_sense()` acts on the correct bit. Bits annotated
+      against the datasheet.
+- Seed `controls.c` `microstep_config` from `MC_STEPPER_STEP_SIZE` instead of a
+  hardcoded `16`.
+    - The control loop and `tmc2209_init()` held independent copies that only
+      agreed at the default. Changing the macro desynchronized them and scaled
+      every angular unit by the ratio. The runtime reconfiguration paths were
+      unaffected, they update both together.
 - Derive the position on-target hysteresis band from the microstep setting
   instead of fixing it at compile time.
     - Replace `POSITION_TOLERANCE_ENTER_RAD` and `POSITION_TOLERANCE_EXIT_RAD`
       with `POSITION_TOLERANCE_FLOOR_RAD`, `POSITION_TOLERANCE_MICROSTEPS` and
       `POSITION_TOLERANCE_EXIT_RATIO`, backwards compatibility loss.
-    - The band is now
-      `max(POSITION_TOLERANCE_FLOOR_RAD, POSITION_TOLERANCE_MICROSTEPS * microstep_rad)`,
-      re-derived by `position_tolerance_update()` from
-      `controls_init()` and `controls_set_microsteps()`.
-    - The floor is the encoder limit, the AS5147P resolves `2*pi/16384` rad
-      (0.38 mrad) with roughly 1 mrad of transition noise, so a tighter band is
-      unachievable no matter how fine the microstepping.
-    - The microstep term is the actuator limit, the rotor only rests on
-      microstep boundaries so the standing error reaches half a microstep.
-- Fix the on-target latch never closing at 1/4 microstepping and coarser.
-    - At `step_size` 1, 2 and 4 the half-microstep standing error (15.7, 7.9 and
-      3.9 mrad) exceeded the fixed 3 mrad entry band, so `on_target_ticks` reset
-      every tick and `latched_on_target` never became true.
-    - The loop stayed in `CONTROLS_EXECUTING` indefinitely, so the step stop in
-      `CONTROLS_ON_POSITION_TARGET` never engaged and the motor hunted around
-      the target. The status LED stayed on the moving colour and the CAN state
-      message never reported `CONTROLS_ON_POSITION_TARGET`.
-    - Both configuration paths accepted these settings without complaint, the
-      comm `motion` command validates only `[1,256]` and the CAN
-      `motion_config_set` handler only rejects `0`.
-- Hold `step_size` 16 (the default) and finer to the previous 0.003 / 0.015 rad
-  band, where the encoder floor governs. Only `step_size` 8 and coarser widen.
-    - `step_size` 8 widens from 3 mrad to 5.9 mrad. It latched before, but with
-      only 0.76 microsteps of band against a 0.5 microstep standing error, a
-      1.5x margin. It now carries the same 3x margin as the default.
-- Add `controls_get_position_tolerance()` and report the derived band in the
-  comm `motion` read back, the value is no longer visible in `configuration.h`.
-    - Update the `motion` command description in `README.md` accordingly.
-- Fix the TMC2209 microstep resolution never actually changing.
-    - `GCONF.mstep_reg_select` (bit 7) was never set, so the microstep
-      resolution stayed under the control of the MS1/MS2 pins and every `MRES`
-      write to `CHOPCONF` was accepted but ignored by the sequencer. Both pins
-      are strapped to GND, which selects 8 microsteps, so the driver ran at 1/8
-      regardless of the configured `step_size`.
-    - Add `tmc2209_set_uart_control()`, called from `tmc2209_init()` before the
-      first `tmc2209_set_microsteps()`.
-    - Every angular unit was scaled by `step_size / 8` as a result. At the
-      default `MC_STEPPER_STEP_SIZE` of 16 the motor ran at twice the commanded
-      velocity and acceleration, and `CONTROL_MODE_POSITION_OPEN_LOOP` travelled
-      twice the requested angle. `CONTROL_MODE_POSITION` still converged to the
-      correct angle, the encoder measures real radians, but carried twice the
-      intended loop gain.
-    - Existing PID gains were tuned against that doubled gain and will need
-      retuning.
-- Fix the `GCONF` bit map, `internal_Rsense` is bit 1 and not bit 6.
-    - Bit 6 is `pdn_disable`, which the datasheet requires set whenever the UART
-      interface is used. `tmc2209_init()` calls
-      `tmc2209_set_current_sense(false, ...)`, so it was actively clearing that
-      bit and leaving `PDN_UART` on its standstill current reduction function.
-    - `tmc2209_set_uart_control()` now sets `pdn_disable`, and
-      `tmc2209_set_current_sense()` acts on the correct `internal_Rsense` bit.
-      The argument previously had no effect on the intended register field.
-    - Bit definitions annotated against datasheet rev 1.08 section 5.1.
-- Seed `controls.c` `microstep_config` from `MC_STEPPER_STEP_SIZE` instead of a
-  hardcoded `16`.
-    - The control loop and `tmc2209_init()` held independent copies of the
-      microstep setting that only agreed at the default. Changing
-      `MC_STEPPER_STEP_SIZE` in `configuration.h` desynchronized them and scaled
-      every angular unit by the ratio. The runtime paths (comm `motion` and CAN
-      `motion_config_set`) were unaffected, they update both together.
+    - The band is the larger of an encoder noise floor and the microstep
+      standing error, re-derived by `position_tolerance_update()` whenever the
+      microstep configuration changes.
+    - Fixes the on-target latch never closing at `step_size` 4 and coarser,
+      where half a microstep exceeded the fixed 3 mrad entry band. The loop
+      stayed in `CONTROLS_EXECUTING` and hunted around the target indefinitely.
+    - `step_size` 16 and finer keep the previous 0.003 / 0.015 rad band, 8 and
+      coarser widen.
+    - Add `controls_get_position_tolerance()` and report the band in the comm
+      `motion` read back, it is no longer visible in `configuration.h`. Update
+      the `motion` command description in `README.md` accordingly.
 - Fix the commanded step rate being truncated to an integer hertz.
-    - The controls bridge cast the step rate to `uint32_t` before handing it to
-      the step generator, which then truncated again converting to a compare
-      period. Both roundings biased the rate, discarding up to a whole step per
-      second of commanded velocity.
     - `tmc2209_step_set_freq_hz()` renamed to `tmc2209_step_set_rate_hz()` and
       now takes a `float`, rounding the compare period once from the fractional
-      rate, backwards compatibility loss. The rename is deliberate so that any
-      stale caller fails to compile rather than silently converting.
-    - Worst case error at 1/16 microstepping improves from 1.8% to under 0.1%,
-      and the 2.3% high rate error at 1/256 microstepping is removed.
+      rate, backwards compatibility loss.
+    - Worst case error at 1/16 microstepping improves from 1.8% to under 0.1%.
 - Refuse step rates below the generator floor instead of silently clamping.
-    - The compare period is a 16-bit register, so at the 1 MHz timer tick the
-      generator cannot emit below `TMC2209_STEP_MIN_RATE_HZ` (7.63 steps/s).
-      Rates below it were clamped, which ran the motor faster than commanded, by
-      up to 12x at full stepping.
-    - `tmc2209_step_set_rate_hz()` now stops the generator and returns
-      `HAL_ERROR` for those rates. Holding still is the honest outcome, the
-      requested motion is not producible.
-    - Add `TMC2209_STEP_MIN_RATE_HZ` and `TMC2209_STEP_MAX_RATE_HZ`, both
-      derived from `TMC2209_TIM_CLOCK_HZ`, which moves to `tmc2209_runner.h` so
-      the limits and the tick rate cannot drift apart.
-    - Add `controls_get_min_velocity_rad_s()`, and reject a `spd` command below
-      that floor in the comm interface with the floor and the active microstep
-      setting, rather than leaving a silently motionless motor. The floor is
-      0.0150 rad/s at 1/16 microstepping and 0.0075 rad/s at 1/32.
-- Document the CubeMX timer dependencies that the step generator and scheduler
-  rely on but could not previously be checked from the source.
-    - Record the full clock chain producing the 1 MHz tick, and note that the
-      APB timer kernel clock is doubled whenever the APB prescaler is not 1, so
-      `PCLK2` alone does not give it.
-    - Record the `ARR` of `0xFFFF` requirement. Both timers assume a full
-      16-bit wrap, TIM15 for the output compare modulo arithmetic in the step
-      ISR and TIM16 for `time_us()` and `is_due_u16()`. A smaller `ARR` would
-      stall stepping and skew every task period with nothing in the source
-      indicating why.
+    - The 16-bit compare register cannot produce below
+      `TMC2209_STEP_MIN_RATE_HZ` (7.63 steps/s). Clamping ran the motor faster
+      than commanded, by up to 12x at full stepping. The generator now stops and
+      returns `HAL_ERROR`.
+    - Add `TMC2209_STEP_MIN_RATE_HZ` and `TMC2209_STEP_MAX_RATE_HZ`, derived
+      from `TMC2209_TIM_CLOCK_HZ`, which moves to `tmc2209_runner.h`.
+    - Add `controls_get_min_velocity_rad_s()` and reject a `spd` command below
+      the floor, rather than leaving a silently motionless motor.
