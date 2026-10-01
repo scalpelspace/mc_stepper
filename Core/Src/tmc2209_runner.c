@@ -18,11 +18,6 @@
 #define VREF_DIVIDER_GAIN (0.752f) // 3.3k / 10k divider.
 #define DAC_MAX_VOLTS (3.3f)       // STM32 DAC max voltage.
 
-// TIM15 input clock after prescaler.
-// dt_ticks = TIM_CLOCK_HZ / (2 * f_step_hz).
-// Verify this matches CubeMX: TIM15 APB2 clock / (PSC + 1).
-#define TMC2209_TIM_CLOCK_HZ (1000000ul)
-
 /** Private variables. ********************************************************/
 
 static volatile uint16_t g_dt_ticks; // Time between successive step signals.
@@ -298,22 +293,42 @@ bool tmc2209_status_poll(void) {
 
 uint16_t tmc2209_get_status(void) { return s_tmc2209_status; }
 
-HAL_StatusTypeDef tmc2209_step_set_freq_hz(const uint32_t f_step_hz) {
-  if (f_step_hz == 0) {
-    __disable_irq();
-    g_dt_ticks = 0;
-    __enable_irq();
-    // Stop the channel interrupt generation first.
-    __HAL_TIM_DISABLE_IT(&TMC2209_HTIM, TIM_IT_CC2);   // CH2 compare.
-    __HAL_TIM_CLEAR_FLAG(&TMC2209_HTIM, TIM_FLAG_CC2); // CH2 compare flag.
-    return HAL_TIM_OC_Stop_IT(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL);
+/**
+ * @brief Stop the step generator and park the compare channel.
+ */
+static HAL_StatusTypeDef step_stop(void) {
+  __disable_irq();
+  g_dt_ticks = 0;
+  __enable_irq();
+  // Stop the channel interrupt generation first.
+  __HAL_TIM_DISABLE_IT(&TMC2209_HTIM, TIM_IT_CC2);   // CH2 compare.
+  __HAL_TIM_CLEAR_FLAG(&TMC2209_HTIM, TIM_FLAG_CC2); // CH2 compare flag.
+  return HAL_TIM_OC_Stop_IT(&TMC2209_HTIM, TMC2209_HTIM_CHANNEL);
+}
+
+HAL_StatusTypeDef tmc2209_step_set_rate_hz(const float f_step_hz) {
+  if (!(f_step_hz > 0.0f)) { // Also catches NaN.
+    return step_stop();
   }
 
-  uint32_t dt = TMC2209_TIM_CLOCK_HZ / (2u * f_step_hz);
+  // Round the compare period from the fractional rate. Truncating the rate to
+  // an integer hertz first would discard up to a full step per second, which
+  // at coarse microstepping is a large fraction of the commanded velocity.
+  const float dt_f = (float)TMC2209_TIM_CLOCK_HZ / (2.0f * f_step_hz);
+
+  // Below TMC2209_STEP_MIN_RATE_HZ the period no longer fits the 16-bit
+  // compare register. Clamping would silently run the motor faster than
+  // commanded, so refuse and stop instead; the caller sees the error.
+  if (dt_f > 65535.0f) {
+    step_stop();
+    return HAL_ERROR;
+  }
+
+  uint32_t dt = (uint32_t)lroundf(dt_f);
   if (dt < 2u)
-    dt = 2u;
+    dt = 2u; // Ceiling, TMC2209_STEP_MAX_RATE_HZ.
   if (dt > 65535u)
-    dt = 65535u;
+    dt = 65535u; // Defensive, the rounding above cannot exceed this.
 
   __disable_irq();
   // The OC channel runs in TOGGLE mode: the STEP pin toggles in hardware on

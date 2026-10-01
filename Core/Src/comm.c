@@ -185,6 +185,19 @@ static void comm_command_motion(const char *args, const control_mode_t mode,
     return;
   }
 
+  // A speed below the generator floor produces no motion at all rather than
+  // creeping, so say so here instead of leaving a silently dead motor. Only
+  // meaningful for speed mode, position modes ramp through the floor.
+  if (mode == CONTROL_MODE_SPEED && setpoint != 0.0f) {
+    const float min_rad_s = controls_get_min_velocity_rad_s();
+    if (fabsf(setpoint) < min_rad_s) {
+      printf("Error: below the step generator floor of %.5f rad/s at %u "
+             "microsteps\r\n",
+             (double)min_rad_s, controls_get_microsteps());
+      return;
+    }
+  }
+
   const mc_stepper_command_t command = {.mode = mode, .setpoint = setpoint};
   controls_set_command(command);
 

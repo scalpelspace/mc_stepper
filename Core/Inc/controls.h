@@ -161,6 +161,17 @@ void controls_set_max_velocity_rad_s(float max_velocity_rad_s);
 float controls_get_max_velocity_rad_s(void);
 
 /**
+ * @brief Slowest non-zero velocity the step generator can actually produce.
+ *
+ * The generator cannot emit below TMC2209_STEP_MIN_RATE_HZ, so the angular
+ * floor scales with the microstep configuration. Velocities between zero and
+ * this value are refused by the generator and the motor holds still.
+ *
+ * @return Minimum non-zero velocity magnitude in rad/s.
+ */
+float controls_get_min_velocity_rad_s(void);
+
+/**
  * @brief Read back the active position on-target hysteresis band.
  *
  * Derived from the microstep configuration, see the tolerance notes above, so

@@ -13,6 +13,26 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/** Definitions. **************************************************************/
+
+// TIM15 input clock after prescaler.
+// dt_ticks = TMC2209_TIM_CLOCK_HZ / (2 * f_step_hz).
+//
+// TIM15 ARR must also stay at 0xFFFF. The step ISR advances the output compare
+// with 16-bit modulo arithmetic, (uint16_t)(ccr + dt_ticks), which is only
+// valid against a full 16-bit wrap, and the dt_ticks ceiling of 65535 below
+// assumes the same. A smaller ARR would leave compare values that never match,
+// stalling the step output with nothing to point at the cause.
+#define TMC2209_TIM_CLOCK_HZ (1000000ul)
+
+// Step generator rate limits. The STEP pin toggles in hardware on each compare
+// match, so a step period spans two compares of dt_ticks each, and dt_ticks
+// has to fit the 16-bit compare register. Both bounds therefore follow from
+// the timer tick rate alone.
+#define TMC2209_STEP_MIN_RATE_HZ                                               \
+  ((float)TMC2209_TIM_CLOCK_HZ / (2.0f * 65535.0f))
+#define TMC2209_STEP_MAX_RATE_HZ ((float)TMC2209_TIM_CLOCK_HZ / (2.0f * 2.0f))
+
 /** Public types. *************************************************************/
 
 typedef struct {
@@ -158,20 +178,31 @@ bool tmc2209_status_poll(void);
 uint16_t tmc2209_get_status(void);
 
 /**
- * @brief Set step frequency in steps/sec (updates compare interval).
+ * @brief Set the step rate in steps/sec (updates the compare interval).
  *
- * @param f_step_hz Target step frequency in hertz to set.
+ * Takes a fractional rate and rounds the compare period from it. Rounding the
+ * rate to an integer hertz first would discard up to a full step per second,
+ * which at coarse microstepping is a large fraction of the commanded velocity.
+ *
+ * Rates at or below zero stop the generator. Rates below
+ * TMC2209_STEP_MIN_RATE_HZ cannot be produced by the 16-bit compare register
+ * and are refused rather than clamped, since clamping would silently run the
+ * motor faster than commanded. Rates above TMC2209_STEP_MAX_RATE_HZ are
+ * clamped to the ceiling.
+ *
+ * @param f_step_hz Target step rate in hertz. Fractional values are honoured.
  *
  * @return HAL_StatusTypeDef status.
+ * @retval HAL_ERROR -> Rate below TMC2209_STEP_MIN_RATE_HZ, generator stopped.
  */
-HAL_StatusTypeDef tmc2209_step_set_freq_hz(uint32_t f_step_hz);
+HAL_StatusTypeDef tmc2209_step_set_rate_hz(float f_step_hz);
 
 /**
  * @brief Arm an exact microstep budget for the step generator.
  *
  * After this call the generator emits at most @p microsteps STEP pulses and
  * then stops itself, independent of how long the commanded frequency is left
- * running. Pair the rate updates via tmc2209_step_set_freq_hz() with the budget
+ * running. Pair the rate updates via tmc2209_step_set_rate_hz() with the budget
  * loaded here.
  *
  * @param microsteps Number of STEP pulses to emit before stopping.

@@ -497,10 +497,10 @@ void controls_run(void) {
   // more than sufficient and avoids a missed-step on reversal.
   const float sr = controls_step_rate_command; // Snapshot the volatile once.
   const bool new_dir = (sr >= 0.0f);
-  const uint32_t freq_hz = (uint32_t)fabsf(sr);
+  const float rate_hz = fabsf(sr);
 
   if (new_dir != s_last_dir || !s_last_dir_valid) {
-    tmc2209_step_set_freq_hz(0); // Halt steps immediately.
+    tmc2209_step_set_rate_hz(0.0f); // Halt steps immediately.
     tmc2209_step_direction(new_dir);
     s_last_dir = new_dir;
     s_last_dir_valid = true;
@@ -513,7 +513,7 @@ void controls_run(void) {
     return;
   }
 
-  tmc2209_step_set_freq_hz(freq_hz);
+  tmc2209_step_set_rate_hz(rate_hz);
 }
 
 void controls_set_command(const mc_stepper_command_t command) {
@@ -583,6 +583,13 @@ void controls_set_max_velocity_rad_s(const float max_velocity_rad_s) {
 }
 
 float controls_get_max_velocity_rad_s(void) { return s_max_velocity_rad_s; }
+
+float controls_get_min_velocity_rad_s(void) {
+  if (steps_per_rad <= 0.0f) {
+    return 0.0f;
+  }
+  return TMC2209_STEP_MIN_RATE_HZ / steps_per_rad;
+}
 
 void controls_get_position_tolerance(float *enter_rad, float *exit_rad) {
   if (enter_rad) {

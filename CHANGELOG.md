@@ -16,7 +16,7 @@
   * [v0.2.4 (2026-08-16)](#v024--2026-08-16-)
   * [v0.3.0 (2026-09-01)](#v030--2026-09-01-)
   * [v0.3.1 (2026-09-06)](#v031--2026-09-06-)
-  * [v0.3.3 (2026-10-01)](#v033--2026-10-01-)
+  * [v0.4.0 (2026-10-01)](#v040--2026-10-01-)
 <!-- TOC -->
 
 </details>
@@ -230,3 +230,39 @@
       `MC_STEPPER_STEP_SIZE` in `configuration.h` desynchronized them and scaled
       every angular unit by the ratio. The runtime paths (comm `motion` and CAN
       `motion_config_set`) were unaffected, they update both together.
+- Fix the commanded step rate being truncated to an integer hertz.
+    - The controls bridge cast the step rate to `uint32_t` before handing it to
+      the step generator, which then truncated again converting to a compare
+      period. Both roundings biased the rate, discarding up to a whole step per
+      second of commanded velocity.
+    - `tmc2209_step_set_freq_hz()` renamed to `tmc2209_step_set_rate_hz()` and
+      now takes a `float`, rounding the compare period once from the fractional
+      rate, backwards compatibility loss. The rename is deliberate so that any
+      stale caller fails to compile rather than silently converting.
+    - Worst case error at 1/16 microstepping improves from 1.8% to under 0.1%,
+      and the 2.3% high rate error at 1/256 microstepping is removed.
+- Refuse step rates below the generator floor instead of silently clamping.
+    - The compare period is a 16-bit register, so at the 1 MHz timer tick the
+      generator cannot emit below `TMC2209_STEP_MIN_RATE_HZ` (7.63 steps/s).
+      Rates below it were clamped, which ran the motor faster than commanded, by
+      up to 12x at full stepping.
+    - `tmc2209_step_set_rate_hz()` now stops the generator and returns
+      `HAL_ERROR` for those rates. Holding still is the honest outcome, the
+      requested motion is not producible.
+    - Add `TMC2209_STEP_MIN_RATE_HZ` and `TMC2209_STEP_MAX_RATE_HZ`, both
+      derived from `TMC2209_TIM_CLOCK_HZ`, which moves to `tmc2209_runner.h` so
+      the limits and the tick rate cannot drift apart.
+    - Add `controls_get_min_velocity_rad_s()`, and reject a `spd` command below
+      that floor in the comm interface with the floor and the active microstep
+      setting, rather than leaving a silently motionless motor. The floor is
+      0.0150 rad/s at 1/16 microstepping and 0.0075 rad/s at 1/32.
+- Document the CubeMX timer dependencies that the step generator and scheduler
+  rely on but could not previously be checked from the source.
+    - Record the full clock chain producing the 1 MHz tick, and note that the
+      APB timer kernel clock is doubled whenever the APB prescaler is not 1, so
+      `PCLK2` alone does not give it.
+    - Record the `ARR` of `0xFFFF` requirement. Both timers assume a full
+      16-bit wrap, TIM15 for the output compare modulo arithmetic in the step
+      ISR and TIM16 for `time_us()` and `is_due_u16()`. A smaller `ARR` would
+      stall stepping and skew every task period with nothing in the source
+      indicating why.
