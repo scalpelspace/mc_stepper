@@ -95,8 +95,11 @@ void controls_run(void);
  * @brief Set the active control mode and target.
  *
  * Switching mode or moving the target re-seeds the loop and enters
- * CONTROLS_EXECUTING. A command identical to the active one is ignored so
- * heartbeat retransmissions do not disturb the loop. Ignored while faulted.
+ * CONTROLS_EXECUTING. While the loop is tracking (EXECUTING or
+ * ON_POSITION_TARGET), a command identical to the active one is ignored so
+ * heartbeat retransmissions do not disturb the loop. Outside those states, for
+ * example after a disable or fault clear, an identical command is accepted so
+ * the loop resumes. Ignored while faulted.
  */
 void controls_set_command(mc_stepper_command_t command);
 

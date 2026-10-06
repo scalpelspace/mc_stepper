@@ -17,6 +17,7 @@
   * [v0.3.0 (2026-09-01)](#v030--2026-09-01-)
   * [v0.3.1 (2026-09-06)](#v031--2026-09-06-)
   * [v0.4.0 (2026-10-01)](#v040--2026-10-01-)
+  * [v0.4.1 (2026-10-06)](#v041--2026-10-06-)
 <!-- TOC -->
 
 </details>
@@ -219,3 +220,19 @@
       from `TMC2209_TIM_CLOCK_HZ`, which moves to `tmc2209_runner.h`.
     - Add `controls_get_min_velocity_rad_s()` and reject a `spd` command below
       the floor, rather than leaving a silently motionless motor.
+
+---
+
+## [v0.4.1 (2026-10-06)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.4.1)
+
+- Fix re-enabling with the previous target leaving the controller `IDLE`.
+    - `controls_set_command()` dropped any command matching the last accepted
+      one, but disabling (or clearing a fault) left that command in place. The
+      driver re-energized while the setpoint was discarded as a duplicate, so
+      nothing held position and an external load could move the shaft.
+    - The duplicate check now only applies while the loop is tracking
+      (`CONTROLS_EXECUTING` or `CONTROLS_ON_POSITION_TARGET`), where it still
+      stops heartbeat retransmissions restarting the state machine.
+    - The issue previously affected every control mode and both the CAN and comm
+      interfaces.
+        - For example `spd 2`, `dis`, `en`, `spd 2` left the motor stationary.

@@ -517,23 +517,38 @@ void controls_run(void) {
 }
 
 void controls_set_command(const mc_stepper_command_t command) {
-  // Gate on change: if the incoming command matches the active one, do not
-  // disturb the state machine. Repeated retransmissions of the same target
-  // (commander heartbeat, enable-hold, periodic resend) would otherwise kick
-  // the state back to CONTROLS_START every frame, resetting the on-target dwell
-  // counter and preventing the ON_POSITION_TARGET latch from ever closing.
+  // Gate on change while tracking: if the incoming command matches the active
+  // one, do not disturb the state machine. Repeated retransmissions of the same
+  // target (commander heartbeat, enable-hold, periodic resend) would otherwise
+  // kick the state back to CONTROLS_START every frame, resetting the on-target
+  // dwell counter and preventing the ON_POSITION_TARGET latch from ever closing.
+  //
+  // The gate applies only while the loop is acting on control_command
+  // (EXECUTING or ON_POSITION_TARGET). Disabling or clearing a fault leaves
+  // control_command in place, so outside those states a matching command is a
+  // request to resume rather than a retransmission. Dropping it would leave the
+  // loop IDLE with the driver energized and nothing holding position. A
+  // duplicate arriving while START is still pending re-enters START, which is
+  // idempotent.
   //
   // Note: POSITION_RELATIVE is resolved to POSITION inside CONTROLS_START, so
   // a repeated identical POSITION_RELATIVE frame will still mismatch here (mode
   // POSITION_RELATIVE vs stored POSITION) and re-trigger a fresh move, which
   // matches the one-shot semantics of a relative command.
-  if (command.mode == control_command.mode &&
+  //
+  // The decision and the write share one critical section, callers include
+  // both the CAN RX interrupt and the main context.
+  __disable_irq();
+  const controls_state_t state = controls_state;
+  const bool tracking =
+      (state == CONTROLS_EXECUTING || state == CONTROLS_ON_POSITION_TARGET);
+  if (tracking && command.mode == control_command.mode &&
       fabsf(command.setpoint - control_command.setpoint) <=
           SETPOINT_EPSILON_RAD) {
+    __enable_irq();
     return;
   }
 
-  __disable_irq();
   control_command = command;
   controls_state = CONTROLS_START; // Transition state.
   __enable_irq();
