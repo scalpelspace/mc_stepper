@@ -16,6 +16,7 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
     * [1.2 Block Diagram](#12-block-diagram)
     * [1.3 Pin Configurations](#13-pin-configurations)
     * [1.4 Clock Configurations](#14-clock-configurations)
+    * [1.5 Firmware Configuration Macros](#15-firmware-configuration-macros)
   * [2 USB Interface via CP2102N (USB-to-UART)](#2-usb-interface-via-cp2102n-usb-to-uart)
     * [2.1 Universal Synchronous/Asynchronous Receiver/Transmitter (USART)](#21-universal-synchronousasynchronous-receivertransmitter-usart)
       * [2.1.1 UART/Serial Interface](#211-uartserial-interface)
@@ -103,6 +104,29 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
      -> 80 MHz APB1 (Maxed) -> 80 MHz APB1 Timer
      -> 80 MHz APB2 (Maxed) -> 80 MHz APB2 Timer
 ```
+
+### 1.5 Firmware Configuration Macros
+
+Compile-time options are set in [`configuration.h`](Core/Inc/configuration.h).
+Flag macros are enabled by defining them and disabled by commenting them out.
+
+| Macro                                | Default        | Effect                                                                                                                                                                      |
+|--------------------------------------|----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `SCALPELSPACE_SHORT_NAME`            | `"mc_stepper"` | Firmware name reported by the `version` command.                                                                                                                            |
+| `MC_STEPPER_VERSION_*`               |                | Software version reported by the firmware (`MAJOR.MINOR.PATCH-IDENTIFIER`).                                                                                                 |
+| `DEFAULT_CAN_NODE_ID`                | `0`            | CAN Node ID held from boot, range `[0, 30]`. `0` is unassigned. Must be `[1, 30]` when `ALLOW_CAN_NODE_ID_ALLOCATION` is undefined.                                         |
+| `ALLOW_CAN_NODE_ID_ALLOCATION`       | Defined        | Lets the CAN ID allocation protocol (re)assign the Node ID at runtime. When undefined, the node holds `DEFAULT_CAN_NODE_ID` for its lifetime and the allocator reserves it. |
+| `LED_EXTERNAL_CONTROL_ONLY`          | Undefined      | Disables firmware-driven WS2812B control (boot colour and control state indication). The LED stays off until it is set externally via CAN, UART (`rgb` command).            |
+| `REQUIRE_NODE_ID_ASSIGNMENT`         | Defined        | Ignores CAN control and configuration commands while the Node ID is unassigned (`0`).                                                                                       |
+| `MC_STEPPER_FULL_CAN_TELEMETRY`      | Defined        | Transmits the `sensor` (10 ms) and `controls_diagnostic` (20 ms) CAN messages. Intended for debug/development.                                                              |
+| `MC_STEPPER_FULL_COMM_TELEMETRY`     | Undefined      | Prints a status line over UART every 100 ms. Intended for debug/development.                                                                                                |
+| `MC_STEPPER_STEP_SIZE`               | `16`           | Boot microstep resolution. Adjustable at runtime with `motion`.                                                                                                             |
+| `MC_STEPPER_RUN_CURRENT_MA`          | `300`          | Boot TMC2209 run current (mA). Adjustable at runtime with `cur`.                                                                                                            |
+| `MC_STEPPER_CURRENT_RUN`             | `8`            | Boot TMC2209 `IRUN`. Adjustable at runtime with `cur`.                                                                                                                      |
+| `MC_STEPPER_CURRENT_HOLD`            | `1`            | Boot TMC2209 `IHOLD`. Adjustable at runtime with `cur`.                                                                                                                     |
+| `MC_STEPPER_CURRENT_HOLD_DELAY`      | `1`            | Boot TMC2209 `IHOLDDELAY`. Adjustable at runtime with `cur`.                                                                                                                |
+| `MC_STEPPER_MAX_ACCELERATION_RAD_S2` | `300.0f`       | Boot acceleration limit (rad/s^2). Adjustable at runtime with `motion`.                                                                                                     |
+| `MC_STEPPER_MAX_VELOCITY_RAD_S`      | `5.0f`         | Boot peak velocity (rad/s). Adjustable at runtime with `motion`.                                                                                                            |
 
 ---
 
