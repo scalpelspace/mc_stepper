@@ -15,7 +15,7 @@
 // Software version: `MAJOR.MINOR.PATCH-IDENTIFIER`.
 #define MC_STEPPER_VERSION_MAJOR (0u)     // uint8_t number.
 #define MC_STEPPER_VERSION_MINOR (4u)     // uint8_t number.
-#define MC_STEPPER_VERSION_PATCH (1u)     // uint8_t number.
+#define MC_STEPPER_VERSION_PATCH (2u)     // uint8_t number.
 #define MC_STEPPER_VERSION_IDENTIFIER 'p' // ASCII character.
 
 // CAN ID standard.
@@ -32,6 +32,10 @@
 //                reserves that ID instead of handing it to another node.
 //                DEFAULT_CAN_NODE_ID must be in [1, 30].
 #define ALLOW_CAN_NODE_ID_ALLOCATION
+
+// Disable firmware driven WS2812B control (ie, boot colour, status, etc). The
+// LED is then only set externally via CAN or UART (comm).
+// #define LED_EXTERNAL_CONTROL_ONLY
 
 // Motor controller safety.
 #define REQUIRE_NODE_ID_ASSIGNMENT // Require node ID assignment for control.

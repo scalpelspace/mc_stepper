@@ -18,6 +18,7 @@
   * [v0.3.1 (2026-09-06)](#v031--2026-09-06-)
   * [v0.4.0 (2026-10-01)](#v040--2026-10-01-)
   * [v0.4.1 (2026-10-06)](#v041--2026-10-06-)
+  * [v0.4.2 (2026-10-20)](#v042--2026-10-20-)
 <!-- TOC -->
 
 </details>
@@ -236,3 +237,17 @@
     - The issue previously affected every control mode and both the CAN and comm
       interfaces.
         - For example `spd 2`, `dis`, `en`, `spd 2` left the motor stationary.
+
+---
+
+## [v0.4.2 (2026-10-20)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.4.2)
+
+- Restore the comm `rgb` command, `rgb <R>, <G>, <B>` with each channel
+  `[0,255]`, and list it in `help`.
+- Cleanup the comm `help` command print.
+- Add `LED_EXTERNAL_CONTROL_ONLY` to `configuration.h` (undefined by default).
+    - When defined, the firmware no longer drives the on-board WS2812B, the boot
+      colour and the `led_status_run()` control state indication are compiled
+      out.
+    - The LED is then only set externally, via the CAN `rgb_led_set` message or
+      the comm `rgb` command.

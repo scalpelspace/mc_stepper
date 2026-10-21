@@ -15,6 +15,7 @@
 #include "controls.h"
 #include "tmc2209_runner.h"
 #include "uid_hash48.h"
+#include "ws2812b_hal_pwm.h"
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -448,8 +449,11 @@ static void comm_print_help(void) {
   printf("  sg [<0|1> <sgthrs>]\r\n");
   printf("Status:\r\n");
   printf("  stat            Control loop and driver status\r\n");
-  printf("  ver | version   Firmware version\r\n");
+  printf("Device:\r\n");
+  printf("  ver | version   Firmware name and version\r\n");
   printf("  uid             48-bit UID hash parts\r\n");
+  printf("  rgb <R>,<G>,<B> Set the on-board LED colour\r\n");
+  printf("  help | ?        List the supported commands\r\n");
 }
 
 /**
@@ -562,6 +566,28 @@ static void comm_handle_line(const char *line) {
 
   else if (comm_match(line, "sg", &args)) {
     comm_command_stallguard(args);
+  }
+
+  /** LED. */
+
+  else if (comm_match(line, "rgb", &args)) {
+    unsigned int r_raw, g_raw, b_raw;
+    // Accept formats like:
+    // "rgb 255,0,128"
+    // "rgb 255, 0, 128"
+    if (sscanf(args, "%u , %u , %u", &r_raw, &g_raw, &b_raw) == 3) {
+      if (r_raw <= 255 && g_raw <= 255 && b_raw <= 255) {
+        uint8_t r = (uint8_t)r_raw;
+        uint8_t g = (uint8_t)g_raw;
+        uint8_t b = (uint8_t)b_raw;
+        ws2812b_set_colour(0, r, g, b);
+        ws2812b_update();
+      } else {
+        printf("Error: RGB values must be [0,255]\r\n");
+      }
+    } else {
+      printf("Error: expected `rgb <R>, <G>, <B>`\r\n");
+    }
   }
 
   else { // Error: unknown command.

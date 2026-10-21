@@ -66,6 +66,7 @@ static void stallguard_run(void) {
   }
 }
 
+#ifndef LED_EXTERNAL_CONTROL_ONLY
 /**
  * @brief Drive the on-board WS2812B to reflect stepper control status.
  */
@@ -114,6 +115,7 @@ static void led_status_run(void) {
   }
   ws2812b_update();
 }
+#endif
 
 /** Public functions. *********************************************************/
 
@@ -127,8 +129,10 @@ void mc_stepper_init(void) {
 
   // On-board miscellaneous components.
   ws2812b_init();
+#ifndef LED_EXTERNAL_CONTROL_ONLY
   ws2812b_set_colour(0, 2, 1, 3); // Init colour.
   ws2812b_update();
+#endif
 
   // Closed-loop controls. (Must be init before tmc2209_init()). Owns and
   // initializes the absolute encoder.
@@ -168,5 +172,7 @@ void mc_stepper_init(void) {
   scheduler_add_task(can_stepper_reconfig_run, 20);
   scheduler_add_task(comm_run, 20);
   scheduler_add_task(stallguard_run, 10);
+#ifndef LED_EXTERNAL_CONTROL_ONLY
   scheduler_add_task(led_status_run, 25);
+#endif
 }
