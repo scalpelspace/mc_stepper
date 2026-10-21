@@ -37,8 +37,12 @@
 // LED is then only set externally via CAN or UART (comm).
 // #define LED_EXTERNAL_CONTROL_ONLY
 
+/** Node ID allocation and control behaviour configuration. *******************/
+
 // Motor controller safety.
 #define REQUIRE_NODE_ID_ASSIGNMENT // Require node ID assignment for control.
+
+/** Telemetry configuration. **************************************************/
 
 // Full telemetry flood on CAN bus intended for debug/development purposes.
 #define MC_STEPPER_FULL_CAN_TELEMETRY
