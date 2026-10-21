@@ -17,6 +17,7 @@ STM32L432KC microcontroller firmware for `mc_stepper_pcb`.
     * [1.3 Pin Configurations](#13-pin-configurations)
     * [1.4 Clock Configurations](#14-clock-configurations)
     * [1.5 Firmware Configuration Macros](#15-firmware-configuration-macros)
+    * [1.6 CAN Bus Protocol](#16-can-bus-protocol)
   * [2 USB Interface via CP2102N (USB-to-UART)](#2-usb-interface-via-cp2102n-usb-to-uart)
     * [2.1 Universal Synchronous/Asynchronous Receiver/Transmitter (USART)](#21-universal-synchronousasynchronous-receivertransmitter-usart)
       * [2.1.1 UART/Serial Interface](#211-uartserial-interface)
@@ -127,6 +128,24 @@ Flag macros are enabled by defining them and disabled by commenting them out.
 | `MC_STEPPER_CURRENT_HOLD_DELAY`      | `1`            | Boot TMC2209 `IHOLDDELAY`. Adjustable at runtime with `cur`.                                                                                                                |
 | `MC_STEPPER_MAX_ACCELERATION_RAD_S2` | `300.0f`       | Boot acceleration limit (rad/s^2). Adjustable at runtime with `motion`.                                                                                                     |
 | `MC_STEPPER_MAX_VELOCITY_RAD_S`      | `5.0f`         | Boot peak velocity (rad/s). Adjustable at runtime with `motion`.                                                                                                            |
+
+### 1.6 CAN Bus Protocol
+
+CAN bus communication follows the ScalpelSpace CAN bus protocol, documented
+at [docs.scalpelspace.com/protocols/can_driver](https://docs.scalpelspace.com/protocols/can_driver/).
+
+The firmware utilized `CAN1` running classic CAN at 500 kbps (87.5% sample
+point).
+
+The drivers and message definitions are not maintained in this repository, they
+are pulled in through nested submodules:
+
+| Submodule                                                                | Path                                | Contents                                                                                                                                        |
+|--------------------------------------------------------------------------|-------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`mc_stepper_driver`](https://github.com/scalpelspace/mc_stepper_driver) | `Core/mc_stepper_driver`            | Protocol contract, the DBC (`can_mc_stepper.dbc`) and its implementation (`mc_stepper_can_dbc.c/h`): message IDs, DLCs, signals and scaling.    |
+| [`can_driver`](https://github.com/scalpelspace/can_driver)               | `Core/mc_stepper_driver/can_driver` | Generic CAN drivers, the ScalpelSpace CAN ID/Node ID scheme, the Node ID allocation protocol (`can_id_scalpelspace.dbc`) and DBC merge tooling. |
+
+Refer to each submodule's `README.md` for message tables and signal layouts.
 
 ---
 
