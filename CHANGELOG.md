@@ -19,6 +19,7 @@
   * [v0.4.0 (2026-10-01)](#v040--2026-10-01-)
   * [v0.4.1 (2026-10-06)](#v041--2026-10-06-)
   * [v0.4.2 (2026-10-20)](#v042--2026-10-20-)
+  * [v0.5.0 (2026-10-20)](#v050--2026-10-20-)
 <!-- TOC -->
 
 </details>
@@ -252,3 +253,9 @@
     - The LED is then only set externally, via the CAN `rgb_led_set` message or
       the comm `rgb` command.
 - Clean up documentation.
+
+---
+
+## [v0.5.0 (2026-10-20)](https://github.com/scalpelspace/mc_stepper/releases/tag/v0.5.0)
+
+- Add MIT LICENSE file.
